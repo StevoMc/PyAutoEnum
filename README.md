@@ -1,0 +1,4 @@
+# PyAutoEnum
+
+
+Work in progress
