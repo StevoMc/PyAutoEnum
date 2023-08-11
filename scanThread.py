@@ -1,4 +1,5 @@
 import threading
+from scan import start_scan
 
 class ScanThread (threading.Thread):
     def __init__(self, target):

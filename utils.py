@@ -15,14 +15,14 @@ def check_protocol(ip, port):
 
     try:
         response = requests.get(f"https://{ip}:{port}", timeout=5)
-        if response.status_code in [200,301]:
+        if response.status_code in [200,301,302]:
             return 'https'
     except (requests.RequestException, ConnectionError) as e:
         pass
 
     try:
         response = requests.get(f"http://{ip}:{port}", timeout=5)
-        if response.status_code in [200,301]:
+        if response.status_code in [200,301,302]:
             return 'http'
     except (requests.RequestException) as e:
         error_msg = str(e)

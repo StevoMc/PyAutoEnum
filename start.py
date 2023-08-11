@@ -2,11 +2,9 @@ import curses
 import time
 import argparse
 from scan import *
+from scanThread import ScanThread
 
 REFRESH_PER_MINUTE = 60
-stdscr = None
-
-scans= []
 
 def print_logs(stdscr, logs):
     for line in logs:
@@ -33,7 +31,6 @@ def print_data(stdscr,data):
         row_line = " | ".join(str(value.get(header, '')).ljust(width) for header, width in zip(headers, column_widths))
         stdscr.addstr(row_line + "\n")
 
-    stdscr.refresh()
 
 def input_bar(stdscr):
     input_row = curses.LINES - 1
@@ -94,7 +91,6 @@ def main():
     #Start Scan
     myScan = ScanThread(args.t)
     myScan.start()
-    scans.append(myScan)
 
     # Initialise Window
     stdscr = curses.initscr()
@@ -111,6 +107,10 @@ def main():
         while user_input!="exit":
             print_data(stdscr, get_data())
             print_logs(stdscr, get_logs())
+            f = open("logs.txt", "a")
+            f.write("\n"+"\n".join(get_logs()))
+            f.close()
+            stdscr.refresh()
             user_input = input_bar(stdscr)
             time.sleep(60 / REFRESH_PER_MINUTE)
     except KeyboardInterrupt:
