@@ -1,74 +1,37 @@
 import curses
 import time
 import argparse
+import threading
 from scan import *
 from scanThread import ScanThread
 
-REFRESH_PER_MINUTE = 60
-
 def print_logs(stdscr, logs):
-    for line in logs:
-        stdscr.addstr(line+"\n")
+    stdscr.addstr("\n\n"+"\n".join(logs[-15:]))
 
 
-def print_data(stdscr,data):
+def print_data(data_win,data):
+
     if not data:
+        data_win.addstr("No data")
         return
 
     # Calculate column widths based on headers and data
-    headers = list(data[next(iter(data))].keys())
-    column_widths = [max(len(str(header)), max(len(str(row[header])) for row in data.values())) for header in headers]
+    headers = ["Ports"]+list(data[next(iter(data))].keys())
+    index_width = 5
+    column_widths = [index_width] + [max(len(str(header)), max(len(str(row[header])) for row in data.values())) for header in headers[1:]]
 
-    stdscr.clear()
-    stdscr.move(0, 0)
     # Print headers
     header_line = " | ".join(header.center(width) for header, width in zip(headers, column_widths))
-    stdscr.addstr(header_line + "\n")
-    stdscr.addstr("-" * (sum(column_widths) + len(column_widths) * 3 - 1) + "\n")
+    data_win.addstr(header_line + "\n")
+    data_win.addstr("-" * (sum(column_widths) + len(column_widths) * 3 - 1) + "\n")
 
     # Print data rows
-    for value in data.values():
-        row_line = " | ".join(str(value.get(header, '')).ljust(width) for header, width in zip(headers, column_widths))
-        stdscr.addstr(row_line + "\n")
+    for key, value in data.items():
+        row_line = str(key).ljust(index_width) + " | " + " | ".join(str(value.get(header, '')).ljust(width) for header, width in zip(headers[1:], column_widths[1:]))
+        data_win.addstr(row_line + "\n")
 
 
-def input_bar(stdscr):
-    input_row = curses.LINES - 1
-    stdscr.move(input_row, 0)
-    stdscr.addstr(input_row, 0, "Enter command: ")
-    stdscr.refresh()
-
-    curses.curs_set(1)  # Show the cursor
-    stdscr.nodelay(1)   # Enable non-blocking input
-    user_input = ""
-
-    while True:
-        try:
-            char = stdscr.getch()
-
-            if char == -1:  # No input
-                continue
-            elif char == 10:  # Enter key
-                break
-            elif char == 27:  # Escape key
-                user_input = "exit"
-                break
-            else:
-                user_input += chr(char)
-                stdscr.addch(char)
-
-            stdscr.refresh()
-        except curses.error:
-            pass
-
-    curses.curs_set(0)  # Hide the cursor
-    stdscr.nodelay(0)   # Disable non-blocking input
-    stdscr.clrtoeol()   # Clear the input line
-    stdscr.refresh()
-
-    return user_input.lower()
-
-def main():
+def main(stdscr):
     global tasks
     #Parse Arguments
     parser = argparse.ArgumentParser()
@@ -88,37 +51,56 @@ def main():
     if os.path.isdir(at.path) == False:
         os.makedirs(at.path)
 
+    # Initialise Window
+    stdscr = curses.initscr()
+    stdscr.nodelay(1)
+    stdscr.refresh()
+    curses.noecho()
+    curses.cbreak()
+    stdscr.move(0,0)
+    height, width = stdscr.getmaxyx()
+    data_win_height = height - 1
+    data_win = curses.newwin(data_win_height, width, 0, 0)
+    input_win = curses.newwin(1, width, data_win_height, 0)
+    input_win.nodelay(True)
+    data_win.clear()
+    input_win.clear()
+
     #Start Scan
     myScan = ScanThread(args.t)
     myScan.start()
 
-    # Initialise Window
-    stdscr = curses.initscr()
-    curses.noecho()
-    curses.cbreak()
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-    curses.init_pair(4, curses.COLOR_CYAN, curses.COLOR_BLACK)
-
+    counter=0
     try:
-        user_input=""
-        while user_input!="exit":
-            print_data(stdscr, get_data())
-            print_logs(stdscr, get_logs())
-            f = open("logs.txt", "a")
-            f.write("\n"+"\n".join(get_logs()))
-            f.close()
-            stdscr.refresh()
-            user_input = input_bar(stdscr)
-            time.sleep(60 / REFRESH_PER_MINUTE)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        curses.echo()
-        curses.nocbreak()
-        curses.endwin()
+        user_input = ""
+        input_str = ""
+        while user_input != "exit":
+            input_win.clear()
+            data_win.clear()
+            time.sleep(0.1)
+            print_data(data_win, get_data())
+            print_logs(data_win, get_logs())
+#            write_log(str(counter))
+#            counter+=1
+            data_win.refresh()
+
+            #Check for user input
+            input_win.addstr(f"Enter command: {input_str}")
+            ch = input_win.getch()
+            if ch == ord('\n'):  # Enter key
+                try:
+                    user_input = input_str
+                    input_str = ""
+                except ValueError:
+                    input_str = ""
+            elif ch == ord('\b') or ch == 127:  # Backspace
+                input_str = input_str[:-1]
+            elif ch != -1:
+                input_str += chr(ch)
+            input_win.refresh()
+
+    except Exception as e:
+        write_log(e)
 
 if __name__ == "__main__":
-    main()
+    curses.wrapper(main)

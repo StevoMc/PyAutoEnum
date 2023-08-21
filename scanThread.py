@@ -1,4 +1,5 @@
 import threading
+import time
 from scan import start_scan
 
 class ScanThread (threading.Thread):
@@ -6,6 +7,7 @@ class ScanThread (threading.Thread):
         threading.Thread.__init__(self)
         self.target= target
         self.finished = False
+        self.daemon = True
 
     def run(self):
         start_scan(self.target)

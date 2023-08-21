@@ -35,6 +35,6 @@ def feroxbuster(protocol,hostname,port):
 
 
 def cmsScan(protocol,hostname,port):
-    cmsScan = AttackThread(f"cmsScan_{port}", port, ["/usr/bin/python", "/home/kali/tools/CMSeeK/cmseek.py", "-u", f"{protocol}://{hostname}:{port}", "--batch", "-r"])
+    cmsScan = AttackThread(f"cmsScan_{port}", port, f"/usr/bin/python /home/kali/tools/CMSeeK/cmseek.py -u {protocol}://{hostname}:{port} --batch -r")
     cmsScan.start()
     return cmsScan
