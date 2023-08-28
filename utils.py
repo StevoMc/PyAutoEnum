@@ -3,7 +3,9 @@ import requests
 import re
 from urllib.parse import urlparse
 from tabulate import tabulate
-
+from collections import OrderedDict
+import socket
+import time
 
 logs=[]
 
@@ -40,6 +42,7 @@ def handle_http_exception(exception):
 
     if match:
         unresolved_host = match.group(1)
+        process_new_hostname(hostname)
         write_log(f"Found host {unresolved_host} which is not in /etc/hosts")
         exit()
 
@@ -71,6 +74,29 @@ def filter_dict_by_values(data, key, values):
     return filtered_dict
 
 
+def merge_dicts(dict1, dict2):
+    result = dict1.copy()
+
+    for key, value in dict2.items():
+        if key in dict1:
+            if isinstance(dict1[key], dict) and isinstance(value, dict):
+                result[key] = merge_dicts(dict1[key], value)
+            elif isinstance(dict1[key], list) and isinstance(value, list):
+                # Append non-duplicate items
+                result[key] = dict1[key] + [item for item in value if item not in dict1[key]]
+            else:
+                if dict1[key] and value and dict1[key] != value:
+                    result[key] = str(dict1[key]) + ", " + str(value)
+                elif not dict1[key] and value:
+                    result[key] = value
+                elif dict1[key] and not value:
+                    result[key] = dict1[key]
+        else:
+            result[key] = value
+
+    return result
+
+
 def write_log(text):
     logs.append(str(text))
     with open("logs.txt", "a") as file:
@@ -79,3 +105,35 @@ def write_log(text):
 
 def get_logs():
     return logs
+
+
+def check_resolve_host(hostname):
+    try:
+        socket.gethostbyname(hostname)
+        return True
+    except socket.gaierror:
+        return False
+
+
+def process_new_hostname(hostname):
+    from scan import get_command
+    if not check_resolve_host(hostname):
+        write_log(f"[!] Non resolvable hostname found: {hostname}")
+        write_log("[*] Add the host to /etc/hosts ('add') or ignore this warning ('ignore')")
+        cmd = get_command()
+        while cmd != "add" and cmd != "ignore":
+            time.sleep(1)
+            cmd = get_command()
+
+        if cmd == "add":
+            write_log("[+] Checking if host can get resolved now ...")
+            if check_resolve_host(hostname):
+                write_log(f"[+] Successfully resolved {hostname}")
+            else:
+                write_log(f"[!] Could not resolve hostname {hostname}")
+                write_log("[!] Exiting ...")
+                exit(1)
+        if cmd == "ignore":
+            write_log("[!] Ignoring host resolve warning for ")
+
+

@@ -3,6 +3,7 @@ import subprocess
 import os
 import time
 import signal
+from utils import write_log
 
 class AttackThread(threading.Thread):
     path = ""
@@ -11,6 +12,9 @@ class AttackThread(threading.Thread):
         """Initialisiert den Thread mit den gegebenen Parametern."""
         super().__init__()
         self.name = name
+        self.port = port
+        if isinstance(command,list):
+            command = " ".join(command)
         self.command = command
         self.filename = os.path.join(AttackThread.path, f"{self.name}.txt")
         self.finished = threading.Event()
@@ -19,31 +23,21 @@ class AttackThread(threading.Thread):
         self.daemon = True
 
     def run(self):
-        """Führt den angegebenen Befehl aus und speichert die Ausgabe in einer Datei."""
-        with open(self.filename, "w") as outfile:
-
+        try:
+            """Führt den angegebenen Befehl aus und speichert die Ausgabe in einer Datei."""
+            with open(self.filename, "w") as outfile:
                 # Startet den Unterprozess
-                self.process = subprocess.Popen(self.command, stdout=outfile, stderr=outfile, shell=True, preexec_fn=os.setsid)
+                self.process = subprocess.call(self.command, stdout=outfile, stderr=outfile, shell=True)
+            write_log(f"[+] Finished {self.name}")
+            from scan import complete_module
+            complete_module(self.name, self.port)
+        except:
+            e = traceback.format_exc()
+            write_log(f"Exception in attackThread.py: {e}")
+        finally: self.finished.set()
 
-                # Wartet, bis der Prozess beendet ist oder ein Stopp-Signal empfangen wird
-                while self.process.poll() is None:
-                    time.sleep(0.1)
 
-                    # Wenn ein Stopp-Signal empfangen wird und der Prozess noch läuft, wird der Prozess beendet
-                    if self.stop_signal.is_set():
-                        try:
-                            os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
-                            self.process.wait()
-                        except ProcessLookupError:
-                            pass
-                self.finished.set()
 
-    def stop(self):
-        """Sendet ein Signal an den Thread, um den Prozess zu stoppen."""
-        self.stop_signal.set()
-        if self.process:
-            os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
-            self.process.wait()
 
     def get_output(self):
         """Liest die Ausgabe des Befehls aus der Datei und gibt sie zurück."""

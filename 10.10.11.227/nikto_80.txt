@@ -1,0 +1,9 @@
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          10.10.11.227
++ Target Hostname:    tickets.keeper.htb
++ Target Port:        80
++ Start Time:         2023-08-28 07:12:04 (GMT-4)
+---------------------------------------------------------------------------
++ Server: nginx/1.18.0 (Ubuntu)
++ /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/

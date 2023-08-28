@@ -4,16 +4,26 @@ import argparse
 import threading
 from scan import *
 from scanThread import ScanThread
+import traceback
+import signal
+import sys
+import json
+
 
 def print_logs(stdscr, logs):
     stdscr.addstr("\n\n"+"\n".join(logs[-15:]))
 
 
-def print_data(data_win,data):
+def print_data(data_win,data_unordered):
 
-    if not data:
-        data_win.addstr("No data")
+    if not data_unordered:
+        data_win.addstr("Waiting for data...\n")
         return
+
+    custom_order = ["service", "product", "version", "info", "modules"]
+    data = {}
+    for key,value_dict in data_unordered.items():
+        data[key] = {value_dict_key:value_dict[value_dict_key] for value_dict_key in custom_order}
 
     # Calculate column widths based on headers and data
     headers = ["Ports"]+list(data[next(iter(data))].keys())
@@ -25,10 +35,33 @@ def print_data(data_win,data):
     data_win.addstr(header_line + "\n")
     data_win.addstr("-" * (sum(column_widths) + len(column_widths) * 3 - 1) + "\n")
 
+    # Function to truncate and add ellipsis if needed
+    def truncate_value(value, width):
+        if len(value) > width:
+            return value[:width-3] + "..."
+        return value
+
     # Print data rows
     for key, value in data.items():
-        row_line = str(key).ljust(index_width) + " | " + " | ".join(str(value.get(header, '')).ljust(width) for header, width in zip(headers[1:], column_widths[1:]))
+        row_line = str(key).ljust(index_width) + " | " + " | ".join(truncate_value(str(value.get(header, '')), width).ljust(width) for header, width in zip(headers[1:], column_widths[1:]))
         data_win.addstr(row_line + "\n")
+
+def save_data():
+    try:
+        #Save Progress
+        with open_ports_lock:
+            with open(get_working_dir()+"pyae_save.json","w") as file:
+                json.dump(get_data(),file)
+    except:
+        e = traceback.format_exc()
+        write_log(f"Exception in save_data: {e}")
+
+
+
+def exit_handler(sig, frame):
+    write_log("\nCtrl+C detected!")
+    save_data()
+    exit()
 
 
 def main(stdscr):
@@ -38,18 +71,34 @@ def main(stdscr):
     parser.add_argument(
         '--path', help='Path to store the output files', required=False)
     parser.add_argument('-t', help='Target ip or hostname', required=True)
+    parser.add_argument('-N', help='New Session, do not use saved session data', required=False)
     args = parser.parse_args()
 
     if args.path != None:
         if not args.path.endswith('/'):
-            at.path = args.path + '/'
+            path = args.path + '/'
         else:
-            at.path = args.path
+            path = args.path
     else:
-        at.path = f"{args.t}/"
+        path = f"{args.t}/"
 
-    if os.path.isdir(at.path) == False:
-        os.makedirs(at.path)
+    if os.path.isdir(path) == False:
+        os.makedirs(path)
+
+    open_ports_save = {}
+    if not args.N:
+        if os.path.exists(path+"pyae_save.json"):
+            try:
+                with open(path+"pyae_save.json") as file:
+                    open_ports_save = json.load(file)
+                    if open_ports_save:
+                        write_log(f"[+] Loaded session for {args.path}")
+            except:
+                e = traceback.format_exc()
+                write_log(f"Exception in load session: {e}")
+
+    set_working_dir(path)
+    signal.signal(signal.SIGINT, exit_handler)
 
     # Initialise Window
     stdscr = curses.initscr()
@@ -67,21 +116,18 @@ def main(stdscr):
     input_win.clear()
 
     #Start Scan
-    myScan = ScanThread(args.t)
+    myScan = ScanThread(args.t,open_ports_save)
     myScan.start()
 
     counter=0
     try:
-        user_input = ""
         input_str = ""
-        while user_input != "exit":
+        while True:
             input_win.clear()
             data_win.clear()
             time.sleep(0.1)
             print_data(data_win, get_data())
             print_logs(data_win, get_logs())
-#            write_log(str(counter))
-#            counter+=1
             data_win.refresh()
 
             #Check for user input
@@ -89,7 +135,8 @@ def main(stdscr):
             ch = input_win.getch()
             if ch == ord('\n'):  # Enter key
                 try:
-                    user_input = input_str
+                    if input_str == "exit": break
+                    send_command(input_str)
                     input_str = ""
                 except ValueError:
                     input_str = ""
@@ -99,8 +146,10 @@ def main(stdscr):
                 input_str += chr(ch)
             input_win.refresh()
 
-    except Exception as e:
-        write_log(e)
+    except:
+        e = traceback.format_exc()
+        write_log(f"Exception in start.py: {e}")
+    finally: save_data()
 
 if __name__ == "__main__":
     curses.wrapper(main)

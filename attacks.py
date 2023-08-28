@@ -2,7 +2,8 @@ import threading
 import subprocess
 import os
 from attackThread import AttackThread
-
+from utils import *
+import nmap
 
 def nikto(protocol,hostname, port):
     nikto = AttackThread(f"nikto_{port}", port, ["/usr/bin/nikto", "--url", f"{protocol}://{hostname}:{port}"])
@@ -38,3 +39,49 @@ def cmsScan(protocol,hostname,port):
     cmsScan = AttackThread(f"cmsScan_{port}", port, f"/usr/bin/python /home/kali/tools/CMSeeK/cmseek.py -u {protocol}://{hostname}:{port} --batch -r")
     cmsScan.start()
     return cmsScan
+
+
+def crawl_web_data(protocol,hostname,port):
+    # Daten von der Webseite holen
+    response = requests.get(f"{protocol}://{hostname}:{port}")
+    content = response.text
+
+    # Reguläre Ausdrücke für die gewünschten Informationen
+    hostname_pattern = re.compile(r'https?://([A-Za-z0-9.-]+)')
+    email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+    software_version_pattern = re.compile(r'([a-zA-Z\s0-9_-]+)\s*v?\d+\.\d+(\.\d+)?')
+    url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
+
+    # Informationen extrahieren
+    hostnames = list(set(hostname_pattern.findall(content)))
+    emails = list(set(email_pattern.findall(content)))
+    software_versions = list(set(software_version_pattern.findall(content)))
+    urls = list(set(url_pattern.findall(content)))
+
+    return {
+        'hostnames': hostnames,
+        'emails': emails,
+        'software_versions': [software[0] for software in software_versions],
+        'urls': urls
+    }
+#    crawl_web = AttackThread("crawl_web_data",port,f"modules/crawl_web_data.py {protocol}://{hostname}:{port}")
+#    crawl_web.start()
+#    return crawl_web
+
+def check_open_ports(ip,args):
+    write_log(f"[+] Nmap Port Scan: {args}")
+    nm = nmap.PortScanner()
+    nm.scan(ip, arguments=args)
+    scan_res ={}
+    for host in nm.all_hosts():
+        for port in nm[host]['tcp']:
+            port_info = {
+                'service': nm[host]['tcp'][port]['name'],
+                'version': nm[host]['tcp'][port]['version'],
+                'product': nm[host]['tcp'][port]['product']
+            }
+            port_info['protocol'] = check_protocol(ip, str(port))
+            port_info["modules"] = []
+            port_info["info"] = {}
+            scan_res[str(port)] = port_info
+    return scan_res
