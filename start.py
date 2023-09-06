@@ -20,7 +20,8 @@ def print_data(data_win,data_unordered):
         data_win.addstr("Waiting for data...\n")
         return
 
-    custom_order = ["service", "product", "version", "info", "modules"]
+    console_width = get_console_width() - 20
+    custom_order = ["service", "hostnames", "product", "version", "info", "modules"]
     data = {}
     for key,value_dict in data_unordered.items():
         data[key] = {value_dict_key:value_dict[value_dict_key] for value_dict_key in custom_order}
@@ -30,20 +31,19 @@ def print_data(data_win,data_unordered):
     index_width = 5
     column_widths = [index_width] + [max(len(str(header)), max(len(str(row[header])) for row in data.values())) for header in headers[1:]]
 
+    # Dynamically adjust column widths to fit the console window
+    while sum(column_widths) > console_width:
+        largest_index = column_widths.index(max(column_widths[1:]))
+        column_widths[largest_index] -= 1
+
     # Print headers
     header_line = " | ".join(header.center(width) for header, width in zip(headers, column_widths))
     data_win.addstr(header_line + "\n")
     data_win.addstr("-" * (sum(column_widths) + len(column_widths) * 3 - 1) + "\n")
 
-    # Function to truncate and add ellipsis if needed
-    def truncate_value(value, width):
-        if len(value) > width:
-            return value[:width-3] + "..."
-        return value
-
     # Print data rows
     for key, value in data.items():
-        row_line = str(key).ljust(index_width) + " | " + " | ".join(truncate_value(str(value.get(header, '')), width).ljust(width) for header, width in zip(headers[1:], column_widths[1:]))
+        row_line = str(key).ljust(index_width) + " | " + " | ".join(truncate_value(str(value.get(header, '')),width).ljust(width) for header, width in zip(headers[1:], column_widths[1:]))
         data_win.addstr(row_line + "\n")
 
 def save_data():
@@ -64,42 +64,7 @@ def exit_handler(sig, frame):
     exit()
 
 
-def main(stdscr):
-    global tasks
-    #Parse Arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--path', help='Path to store the output files', required=False)
-    parser.add_argument('-t', help='Target ip or hostname', required=True)
-    parser.add_argument('-N', help='New Session, do not use saved session data', required=False)
-    args = parser.parse_args()
-
-    if args.path != None:
-        if not args.path.endswith('/'):
-            path = args.path + '/'
-        else:
-            path = args.path
-    else:
-        path = f"{args.t}/"
-
-    if os.path.isdir(path) == False:
-        os.makedirs(path)
-
-    open_ports_save = {}
-    if not args.N:
-        if os.path.exists(path+"pyae_save.json"):
-            try:
-                with open(path+"pyae_save.json") as file:
-                    open_ports_save = json.load(file)
-                    if open_ports_save:
-                        write_log(f"[+] Loaded session for {args.path}")
-            except:
-                e = traceback.format_exc()
-                write_log(f"Exception in load session: {e}")
-
-    set_working_dir(path)
-    signal.signal(signal.SIGINT, exit_handler)
-
+def main(stdscr,target):
     # Initialise Window
     stdscr = curses.initscr()
     stdscr.nodelay(1)
@@ -116,7 +81,7 @@ def main(stdscr):
     input_win.clear()
 
     #Start Scan
-    myScan = ScanThread(args.t,open_ports_save)
+    myScan = ScanThread(target,open_ports_save)
     myScan.start()
 
     counter=0
@@ -152,4 +117,37 @@ def main(stdscr):
     finally: save_data()
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    #Parse Arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--path', help='Path to store the output files', required=False)
+    parser.add_argument('-t',"--target", help='Target ip or hostname', required=True)
+    parser.add_argument('-n',"--newsession",  action='store_true', help='New Session, do not use saved session data', required=False)
+    args = parser.parse_args()
+
+    if args.path != None:
+        if not args.path.endswith('/'):
+            path = args.path + '/'
+        else:
+            path = args.path
+    else:
+        path = f"{args.target}/"
+
+    if os.path.isdir(path) == False:
+        os.makedirs(path)
+
+    open_ports_save = {}
+    if not args.newsession:
+        if os.path.exists(path+"pyae_save.json"):
+            try:
+                with open(path+"pyae_save.json") as file:
+                    open_ports_save = json.load(file)
+                    if open_ports_save:
+                        write_log(f"[+] Loaded session for {path}")
+            except:
+                e = traceback.format_exc()
+                write_log(f"Exception in load session: {e}")
+
+    set_working_dir(path)
+    signal.signal(signal.SIGINT, exit_handler)
+    curses.wrapper(main,args.target)

@@ -1,0 +1,9 @@
+Todo:
+
+- Liste von targets verwalten, wenn hostnamen zu target gefunden werden, seperaten web scan für den hostnamen
+- möglichkeit user für input zu prompten
+- analyse.py mit functionen für attacks.py schreiben
+- "show 80" command soll alle informationen über port 80 anzeigen
+- erstmal nicht automatisch denken, sondern mit modulen, die über prompt ausgewählt werden
+
+#TODO in scan.py

@@ -9,55 +9,45 @@ import time
 
 logs=[]
 
-def check_protocol(ip, port):
-    # Get the hostname for HTTPS first since it's more secure
-    hostname = get_hostname(ip, port, "https")
-    if hostname == ip:  # If HTTPS hostname is same as IP, try HTTP
-        hostname = get_hostname(ip, port, "http")
-
+def get_hostnames(ip, port):
+    hostnames = []
     for protocol in ["https", "http"]:
-        if try_protocol(hostname, port, protocol):
-            return protocol
-    return ""
+        hostname = get_hostname_from_header(ip, port, protocol)
+        if hostname and [hostname, protocol] not in hostnames:
+            if process_new_hostname(hostname):
+                try:
+                    if socket.gethostbyname(hostname) == ip:
+                        hostnames.append([hostname, protocol])
+                except socket.gaierror:
+                    pass
+        try:
+            response = requests.get(f"{protocol}://{ip}:{port}", timeout=2)
+            if response.status_code == 200 and [ip, protocol] not in hostnames:
+                hostnames.append([ip, protocol])
+        except requests.RequestException as e:
+            if protocol == "http" and "host=" in str(e) and "Failed to resolve" in str(e):
+                unresolved_host = re.search(r"Failed to resolve '(.+?)'", str(e)).group(1)
+                if process_new_hostname(unresolved_host) and [unresolved_host, protocol] not in hostnames:
+                    try:
+                        if socket.gethostbyname(hostname) == ip:
+                            hostnames.append([unresolved_host,protocol])
+                    except socket.gaierror:
+                        pass
+    return hostnames
 
 
-def try_protocol(hostname, port, protocol):
-    try:
-        response = requests.get(f"{protocol}://{hostname}:{port}", timeout=1)
-        if response.status_code in [200, 301, 302]:
-            return True
-    except requests.RequestException as e:
-        if protocol == "http":
-            handle_http_exception(e)
-    return False
-
-
-def handle_http_exception(exception):
-    error_msg = str(exception)
-    if "host=" not in error_msg:
-        return
-
-    pattern = r"Failed to resolve '(.+?)'"
-    match = re.search(pattern, error_msg)
-
-    if match:
-        unresolved_host = match.group(1)
-        process_new_hostname(hostname)
-        write_log(f"Found host {unresolved_host} which is not in /etc/hosts")
-        exit()
-
-
-def get_hostname(ip, port, protocol):
+def get_hostname_from_header(ip, port, protocol):
     try:
         url = f"{protocol}://{ip}:{port}"
         response = requests.head(url, timeout=1)
         if 'location' in response.headers:
             location = response.headers['location']
             parsed_url = urlparse(location)
-            return parsed_url.hostname or ip
-    except requests.RequestException:
+            return parsed_url.hostname
+    except:
         pass
-    return ip
+    return None
+
 
 def check_target_up(ip):
     try:
@@ -67,11 +57,6 @@ def check_target_up(ip):
         return False
     except subprocess.TimeoutExpired:
         return False
-
-
-def filter_dict_by_values(data, key, values):
-    filtered_dict = {k: v for k, v in data.items() if v.get(key) in values}
-    return filtered_dict
 
 
 def merge_dicts(dict1, dict2):
@@ -115,9 +100,19 @@ def check_resolve_host(hostname):
         return False
 
 
+def check_http_connection(protocol,ip,port,timeout=2):
+    try:
+        response = requests.get(f"{protocol}://{ip}:{port}", timeout=timeout)
+        if response.status_code == 200:
+            return True
+    except requests.RequestException as e:
+        return False
+
 def process_new_hostname(hostname):
     from scan import get_command
-    if not check_resolve_host(hostname):
+    if check_resolve_host(hostname):
+        return True
+    else:
         write_log(f"[!] Non resolvable hostname found: {hostname}")
         write_log("[*] Add the host to /etc/hosts ('add') or ignore this warning ('ignore')")
         cmd = get_command()
@@ -129,11 +124,24 @@ def process_new_hostname(hostname):
             write_log("[+] Checking if host can get resolved now ...")
             if check_resolve_host(hostname):
                 write_log(f"[+] Successfully resolved {hostname}")
+                return True
             else:
                 write_log(f"[!] Could not resolve hostname {hostname}")
                 write_log("[!] Exiting ...")
                 exit(1)
         if cmd == "ignore":
-            write_log("[!] Ignoring host resolve warning for ")
+            write_log(f"[!] Ignoring host resolve warning for {hostname}")
+            return False
 
 
+def truncate_value(value, width):
+    if len(value) > width:
+        return value[:width-3] + "..."
+    return value
+
+def get_console_width():
+    try:
+        width = int(subprocess.check_output(['tput', 'cols']))
+        return width
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None

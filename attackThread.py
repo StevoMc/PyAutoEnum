@@ -23,6 +23,11 @@ class AttackThread(threading.Thread):
         self.daemon = True
 
     def run(self):
+        from scan import check_module_finished
+        if check_module_finished(self.name, self.port):
+            return
+
+        write_log(f"[+] Started Attack: {self.name}")
         try:
             """Führt den angegebenen Befehl aus und speichert die Ausgabe in einer Datei."""
             with open(self.filename, "w") as outfile:

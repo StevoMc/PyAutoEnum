@@ -29,9 +29,14 @@ def start_scan(target, open_ports_save):
             open_ports = merge_dicts(open_ports,open_ports_min)
 
     # Webserver
-    http_ports = filter_dict_by_values(open_ports, "protocol", ["http","https"])
+    http_ports = {k: v for k, v in open_ports.items() if v.get('hostnames',None) is not None}
+    #For every http port
     for port in http_ports:
-        scan_webserver(target, port, http_ports[port])
+        # for every hostname of port
+        for i in range(len(http_ports[port]["hostnames"])):
+            hostname = http_ports[port]["hostnames"][i][0]
+            protocol = http_ports[port]["hostnames"][i][1]
+            scan_webserver(target, port,hostname, protocol)
 
     if not os.path.exists(f"{path}full.nmap"):
         full_scan = check_open_ports(target,f"-p- -sV -oN {path}full.nmap")
@@ -40,36 +45,36 @@ def start_scan(target, open_ports_save):
         write_log(f"[+] Completed: Full Nmap")
 
 
-def scan_webserver(target, port, values):
+def scan_webserver(target, port, hostname, protocol):
     global tasks
-    protocol = values["protocol"]
-    hostname = get_hostname(target, port, protocol)
-
-    #Get HTML Title
-    response = requests.get(f"{protocol}://{hostname}:{port}")
-    soup = BeautifulSoup(response.text, 'html.parser')
-    open_ports[port]["info"]["title"] = soup.title
 
     #Crawl Web Data
-    write_log(f"[+] Started Attack: Crawl Web Data [{port}]")
+    write_log(f"[+] Started Attack: Crawl Web Data [{hostname} {port}]")
     crawled_data = crawl_web_data(protocol,hostname,port)
     for hostname in crawled_data["hostnames"]:
-        process_new_hostname(hostname)
+        write_log([hosts_data[0] for hosts_data in open_ports[port]["hostnames"]])
+        if hostname not in [hosts_data[0] for hosts_data in open_ports[port]["hostnames"]]:
+            if process_new_hostname(hostname):
+                with open_ports_lock:
+                    if check_http_connection("http",hostname,port):
+                        open_ports[port]["hostnames"].append(hostname)
+
+    #TODO
+    # Crawl Daten analysieren
+    # wenn seite zu klein -> mögliche hostnamen und gefundene urls probieren
+    # wenn keine gefunden, alles an
 
     #Start Sub Domain Brute
     if hostname != target:
         tasks.append(wfuzz_sub_brute(protocol,hostname,port))
 
     #Start Feroxbuster Dir Bruteforce
-    write_log(f"[+] Started Attack: feroxbuster [{port}]")
     tasks.append(feroxbuster(protocol,hostname,port))
 
     #Start Nikto Web Analyser
-    write_log(f"[+] Started Attack: nikto [{port}]")
     tasks.append(nikto(protocol,hostname, port))
 
     #CMS Scan
-    write_log(f"[+] Started Attack: cmsScan [{port}]")
     tasks.append(cmsScan(protocol,hostname,port))
 
 
@@ -95,3 +100,7 @@ def get_command():
 def complete_module(name,port):
     with open_ports_lock:
         open_ports[port]["modules"].append(name)
+
+def check_module_finished(name, port):
+    with open_ports_lock:
+        return name in open_ports[port]["modules"]

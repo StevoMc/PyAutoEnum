@@ -1,1 +1,0 @@
-{"22": {"service": "ssh", "version": "8.9p1 Ubuntu 3ubuntu0.3", "product": "OpenSSH", "protocol": "", "modules": [], "info": {}}, "80": {"service": "http", "version": "1.18.0", "product": "nginx", "protocol": "http", "modules": ["cmsScan_80", "WFUZZ_Sub_Brute_80"], "info": {"title": null}}}
