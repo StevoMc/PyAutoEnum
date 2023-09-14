@@ -3,7 +3,11 @@ import subprocess
 import os
 from attackThread import AttackThread
 from utils import *
+from smb_utils import *
+from utils import *
 import nmap
+from bs4 import BeautifulSoup
+
 
 def nikto(protocol,hostname, port):
     nikto = AttackThread(f"nikto_{hostname}_{port}", port, ["/usr/bin/nikto", "--url", f"{protocol}://{hostname}:{port}"])
@@ -44,13 +48,14 @@ def cmsScan(protocol,hostname,port):
 def crawl_web_data(protocol,hostname,port):
     response = requests.get(f"{protocol}://{hostname}:{port}")
     content = response.text
+#    soup = BeautifulSoup(content, 'html.parser')
 
     hostname_pattern = re.compile(r'https?://([A-Za-z0-9.-]+)')
     email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
     software_version_pattern = re.compile(r'([a-zA-Z\s0-9_-]+)\s*v?\d+\.\d+(\.\d+)?')
     url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
     software_versions = list(set(software_version_pattern.findall(content)))
-
+ #   default_page = is_default_page(reponse)
 
     hostnames = list(set(hostname_pattern.findall(content)))
     hostnames_checked = []
@@ -63,20 +68,20 @@ def crawl_web_data(protocol,hostname,port):
             pass
 
     return {
-        'title':response.content.title,
+#        'title':soup.title,
         'hostnames': hostnames_checked,
         'emails': list(set(email_pattern.findall(content))),
         'software_versions': [software[0] for software in software_versions],
         'urls': list(set(url_pattern.findall(content))),
         'size': len(response.content),
+#        'default_page':default_page,
         'content':content
     }
 
 def check_open_ports(ip,args):
-    write_log(f"[+] Nmap Port Scan: {args}")
     nm = nmap.PortScanner()
     nm.scan(ip, arguments=args)
-    scan_res ={}
+    scan_res ={"0":{"modules":[]}}
     for host in nm.all_hosts():
         for port in nm[host]['tcp']:
             port_info = {
@@ -89,3 +94,22 @@ def check_open_ports(ip,args):
             }
             scan_res[str(port)] = port_info
     return scan_res
+
+
+def enum_smb(ip, username="", password=""):
+    conn = SMBConnection(username, password, "", str(ip))
+    assert conn.connect(str(ip), 445)
+
+    smb_shares = get_smb_shares(conn)
+
+    for share_name,smb_share in smb_shares.items():
+        if smb_share['readable'] or smb_share['writeable']:
+            log_info(f"Found smb share {share_name} read:{smb_share['readable']} write:{smb_share['writeable']}")
+
+    download_files_from_shares(conn,smb_shares,"")
+
+    users, groups = get_users_and_groups(ip, '', '')
+    if users or groups:
+        log_success(f"Found smb users: {','.join(users)} groups: {','.join(groups)}")
+    else: log_info("No smb users or groups found")
+

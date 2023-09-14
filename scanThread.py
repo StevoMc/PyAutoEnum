@@ -1,7 +1,7 @@
 import threading
 import time
 from scan import start_scan
-from utils import write_log
+from utils import log_error
 import traceback
 
 class ScanThread (threading.Thread):
@@ -18,5 +18,5 @@ class ScanThread (threading.Thread):
             self.finished = True
         except: 
             stack_trace_str = traceback.format_exc()
-            write_log(f"Exception in scanThread: {stack_trace_str}")
+            log_error(f"Exception in scanThread: {stack_trace_str}")
 

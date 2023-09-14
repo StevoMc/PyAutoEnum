@@ -3,12 +3,17 @@ import subprocess
 import os
 import time
 import signal
-from utils import write_log
+from utils import log_info,log_error
+import traceback
+
 
 class AttackThread(threading.Thread):
     path = ""
+    running_count = 0
+    finished_count = 0
+    error_count = 0
 
-    def __init__(self, name, port, command):
+    def __init__(self, name, port, command, command_args=[], command_kwargs={}, analyse=None):
         """Initialisiert den Thread mit den gegebenen Parametern."""
         super().__init__()
         self.name = name
@@ -16,38 +21,40 @@ class AttackThread(threading.Thread):
         if isinstance(command,list):
             command = " ".join(command)
         self.command = command
+        self.command_args = command_args
+        self.command_kwargs = command_kwargs
         self.filename = os.path.join(AttackThread.path, f"{self.name}.txt")
-        self.finished = threading.Event()
-        self.stop_signal = threading.Event()
-        self.process = None
         self.daemon = True
+        self.output = None
+        self.analyse = analyse
 
     def run(self):
         from scan import check_module_finished
         if check_module_finished(self.name, self.port):
             return
 
-        write_log(f"[+] Started Attack: {self.name}")
+        log_info(f"Started Module: {self.name}")
+        AttackThread.running_count += 1
         try:
-            """Führt den angegebenen Befehl aus und speichert die Ausgabe in einer Datei."""
-            with open(self.filename, "w") as outfile:
-                # Startet den Unterprozess
-                self.process = subprocess.call(self.command, stdout=outfile, stderr=outfile, shell=True)
-            write_log(f"[+] Finished {self.name}")
+            # Starter for functions
+            if callable(self.command):
+                self.output = self.command(*self.command_args, **self.command_kwargs)
+            else: # Starter for external programs
+                with open(self.filename, "w") as outfile:
+                    self.process = subprocess.call(self.command, stdout=outfile, stderr=outfile, shell=True)
+            log_info(f"Finished {self.name}")
             from scan import complete_module
             complete_module(self.name, self.port)
+            AttackThread.finished_count += 1
         except:
             e = traceback.format_exc()
-            write_log(f"Exception in attackThread.py: {e}")
-        finally: self.finished.set()
-
-
-
-
-    def get_output(self):
-        """Liest die Ausgabe des Befehls aus der Datei und gibt sie zurück."""
-        if not self.finished.is_set():
-            return None
-
-        with open(self.filename, 'r') as file:
-            return file.read()
+            log_error(f"Exception in attackThread.py: {e}")
+            AttackThread.errors_count += 1
+        finally:
+            AttackThread.running_count -= 1
+            if callable(self.analyse):
+                if not self.output:
+                    if os.path.exists(self.filename):
+                        with open(self.filename, 'r') as file:
+                            self.output = file.readlines()
+                self.analyse(self.output)

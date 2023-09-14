@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 import subprocess
 import requests
 import re
@@ -6,8 +7,17 @@ from tabulate import tabulate
 from collections import OrderedDict
 import socket
 import time
+import threading
+import traceback
+import yaml
 
 logs=[]
+
+
+
+def load_modules(file_path):
+    with open(file_path, 'r') as yaml_file:
+        return yaml.safe_load(yaml_file)["attacks"]
 
 def get_hostnames(ip, port):
     hostnames = []
@@ -82,7 +92,27 @@ def merge_dicts(dict1, dict2):
     return result
 
 
-def write_log(text):
+def log_interaction(text):
+    _write_log("[->] "+str(text))
+
+
+def log_error(text):
+    _write_log("[-] "+str(text))
+
+
+def log_warning(text):
+    _write_log("[!] "+str(text))
+
+
+def log_info(text):
+    _write_log("[*] "+str(text))
+
+
+def log_success(text):
+    _write_log("[+] "+str(text))
+
+
+def _write_log(text):
     logs.append(str(text))
     with open("logs.txt", "a") as file:
         file.write(str(text)+"\n")
@@ -109,29 +139,31 @@ def check_http_connection(protocol,ip,port,timeout=2):
         return False
 
 def process_new_hostname(hostname):
-    from scan import get_command
     if check_resolve_host(hostname):
         return True
     else:
         write_log(f"[!] Non resolvable hostname found: {hostname}")
         write_log("[*] Add the host to /etc/hosts ('add') or ignore this warning ('ignore')")
-        cmd = get_command()
-        while cmd != "add" and cmd != "ignore":
-            time.sleep(1)
+        from scan import get_command
+        from commands import prompt_lock
+        with prompt_lock:
             cmd = get_command()
+            while cmd != "add" and cmd != "ignore":
+                time.sleep(1)
+                cmd = get_command()
 
-        if cmd == "add":
-            write_log("[+] Checking if host can get resolved now ...")
-            if check_resolve_host(hostname):
-                write_log(f"[+] Successfully resolved {hostname}")
-                return True
-            else:
-                write_log(f"[!] Could not resolve hostname {hostname}")
-                write_log("[!] Exiting ...")
-                exit(1)
-        if cmd == "ignore":
-            write_log(f"[!] Ignoring host resolve warning for {hostname}")
-            return False
+            if cmd == "add":
+                write_log("[+] Checking if host can get resolved now ...")
+                if check_resolve_host(hostname):
+                    write_log(f"[+] Successfully resolved {hostname}")
+                    return True
+                else:
+                    write_log(f"[!] Could not resolve hostname {hostname}")
+                    write_log("[!] Exiting ...")
+                    exit(1)
+            if cmd == "ignore":
+                write_log(f"[!] Ignoring host resolve warning for {hostname}")
+                return False
 
 
 def truncate_value(value, width):
@@ -139,9 +171,37 @@ def truncate_value(value, width):
         return value[:width-3] + "..."
     return value
 
+
 def get_console_width():
     try:
         width = int(subprocess.check_output(['tput', 'cols']))
         return width
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
+
+
+def is_default_page(response):
+    try:
+        soup = BeautifulSoup(response.content, 'html.parser')
+        headers = response.headers
+
+        if "Apache Server" in soup.text and "Thank you for using Apache" in soup.text:
+            return "Apache Default Page"
+        elif "Welcome to nginx!" in soup.title.string and "nginx web server" in soup.text:
+            if headers.get('Server', '').startswith('nginx'):
+                return "Nginx Default Page"
+        elif "IIS Windows Server" in soup.text and "Start Internet Information Services (IIS)" in soup.text:
+            if headers.get('Server', '').startswith('Microsoft-IIS'):
+                return "IIS Default Page"
+        elif "If you're seeing this, you've successfully installed Tomcat. Congratulations!" in soup.text and "Apache Tomcat/" in soup.text:
+            return "Tomcat Default Page"
+        elif "lighttpd powers several popular Web 2.0 sites" in soup.text and "Performance is a key value for Lighttpd" in soup.text:
+            if headers.get('Server', '').startswith('lighttpd'):
+                return "Lighttpd Default Page"
+        elif "This web server is powered by Cherokee" in soup.text and "It works!" in soup.text:
+            if headers.get('Server', '').startswith('Cherokee'):
+                return "Cherokee Default Page"
+        else:
+            return None
+    except:
+        log_error(traceback.format_exc())
