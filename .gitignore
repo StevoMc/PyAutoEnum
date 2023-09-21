@@ -1,4 +1,6 @@
 
 __pycache__/*
+smb_files/
 logs.txt
+error.log
 10.10*

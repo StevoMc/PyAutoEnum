@@ -1,6 +1,7 @@
 import threading
 import traceback
 from utils import log_interaction, log_info, log_error, get_console_width, truncate_value
+from datacontainer import *
 
 prompt_lock = threading.Lock()
 
@@ -16,19 +17,17 @@ def command_show(args):
         return
     port = args[0]
 
-    from scan import open_ports, set_display_data
+    from scan import open_ports
     ddata = []
     ddata.append(f"Information about port [{port}]")
 
-    console_width = get_console_width()
     for key, value in open_ports[port].items():
-#        data = truncate_value(f"{key}: {value}",console_width)
         ddata.append(f"{key}: {value}")
+    log_info(ddata)
     set_display_data(ddata)
 
 
 def command_back(args):
-    from scan import set_display_data
     set_display_data([])
 
 

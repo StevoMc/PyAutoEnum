@@ -6,16 +6,16 @@ import threading
 from os import getlogin
 from commands import execute_command, prompt_lock
 from analyse import *
+from datacontainer import *
 
 open_ports = {}
 open_ports_lock = threading.Lock()
-path = ""
 command=""
-display_data = None
-modules = load_modules("modules.yml")
-log_success(f"{len(modules)} modules loaded")
 
 def start_scan(target, open_ports_save):
+    if get_modules():
+        log_success(f"{len(get_modules())} modules loaded")
+
     global open_ports
     if open_ports_save:
         with open_ports_lock:
@@ -34,7 +34,7 @@ def start_scan(target, open_ports_save):
 
     if "445" in open_ports:
         AttackThread("smb_enum_anon","445",enum_smb, command_args=[target],analyse=analyse_smb_enum_anon).start()
-
+    path = get_working_dir()
     AttackThread("full_nmap","0",check_open_ports, command_args=[target,f"-p- -sV -oN {path}full.nmap"], analyse=analyse_full_nmap).start()
 
     # Webserver
@@ -52,17 +52,22 @@ def scan_webserver(target, port, hostname, protocol):
 
     #Crawl Web Data
     log_info(f"Started Enum: Crawl Web Data [{hostname} {port}]")
-    crawled_data = crawl_web_data(protocol,hostname,port)
+    try:
+        crawled_data = crawl_web_data(protocol,hostname,port)
 
-    #Add hostnames
-    for hostname in crawled_data["hostnames"]:
-        if hostname not in [hosts_data[0] for hosts_data in open_ports[port]["hostnames"]]:
-            if process_new_hostname(hostname):
-                with open_ports_lock:
-                    if check_http_connection("http",hostname,port):
-                        open_ports[port]["hostnames"].append(hostname)
-    add_information(port, "info", crawled_data)
-    log_info(f"Finished Enum: Crawl Web Data [{hostname} {port}]")
+        #Add hostnames
+        for hostname in crawled_data["hostnames"]:
+            if hostname not in [hosts_data[0] for hosts_data in open_ports[port]["hostnames"]]:
+                if process_new_hostname(hostname):
+                    with open_ports_lock:
+                        if check_http_connection("http",hostname,port):
+                            open_ports[port]["hostnames"].append(hostname)
+        add_information(port, "info", crawled_data)
+        log_info(f"Finished Enum: Crawl Web Data [{hostname} {port}]")
+
+    except Exception as e:
+        log_warning(f"Could not crawl website: {e}")
+
 
     #TODO
     # Crawl Daten analysieren
@@ -71,10 +76,10 @@ def scan_webserver(target, port, hostname, protocol):
 
     #Start Sub Domain Brute
     if hostname != target:
-        wfuzz_sub_brute(protocol,hostname,port)
+        AttackThread("wfuzz_sub_brute",port, wfuzz_sub_brute, command_args=[protocol,hostname,port], analyse=analyse_wfuzz_sub_brute).start()
 
     #Start Feroxbuster Dir Bruteforce
-#   tasks.append(feroxbuster(protocol,hostname,port))
+#   feroxbuster(protocol,hostname,port)
 
     #Start Nikto Web Analyser
     nikto(protocol,hostname, port)
@@ -85,22 +90,6 @@ def scan_webserver(target, port, hostname, protocol):
 
 def get_data():
     return open_ports
-
-def set_working_dir(wd):
-    global path
-    path = wd
-    AttackThread.path = wd
-
-def get_working_dir():
-    return path
-
-def get_display_data():
-    global display_data
-    return display_data
-
-def set_display_data(data):
-    global display_data
-    display_data = data
 
 def send_command(cmd):
     global command

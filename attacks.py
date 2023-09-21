@@ -5,24 +5,52 @@ from attackThread import AttackThread
 from utils import *
 from smb_utils import *
 from utils import *
+from analyse import *
 import nmap
 from bs4 import BeautifulSoup
+import concurrent.futures
 
 
 def nikto(protocol,hostname, port):
-    nikto = AttackThread(f"nikto_{hostname}_{port}", port, ["/usr/bin/nikto", "--url", f"{protocol}://{hostname}:{port}"])
-    nikto.start()
-    return nikto
+    AttackThread(f"nikto_{hostname}_{port}", port, ["/usr/bin/nikto", "--url", f"{protocol}://{hostname}:{port}"]).start()
 
-def wfuzz_sub_brute(protocol,hostname,port):
-    fuzz_hide_cmd = f'echo "www" | wfuzz -c -z stdin -H "Host:FUZZ.{hostname}" -u {protocol}://{hostname}:{port} 2>/dev/null | grep -oP "\b[0-9]+(?=\sCh\b)"'
-    fuzz_hide_value=str(os.system(fuzz_hide_cmd))
-    sub_brute = AttackThread(f"WFUZZ_Sub_Brute_{hostname}_{port}", port, ["/usr/bin/wfuzz", "-u", f"{protocol}://{hostname}:{port}","-c","-w","/usr/share/seclists/Discovery/DNS/subdomains-top1million-20000.txt","-H",f"Host:FUZZ.{hostname}","--hh",fuzz_hide_value])
-    sub_brute.start()
-    return sub_brute
+
+def wfuzz_sub_brute(protocol,hostname,port, threads=500):
+    url = f"{protocol}://{hostname}:{port}"
+    wordlist = "/usr/share/seclists/Discovery/DNS/subdomains-top1million-20000.txt"
+
+    def get_chars_for_subdomain(subdomain,rec_level=0):
+        try:
+            return len(requests.get(url, headers={"Host":f"{subdomain.strip()}.{hostname}"},timeout=2+rec_level, verify=False, allow_redirects=False).text)
+        except:
+            if rec_level:
+                time.sleep(rec_level)
+            if rec_level<=3:
+                rec_level+=1
+                return get_chars_for_subdomain(subdomain,rec_level)
+            else:
+                print("{rec_level} times connection error {subdomain}")
+                return 0
+
+
+    response_www_value = get_chars_for_subdomain("www")
+
+    with open(wordlist) as list:
+        subs = list.readlines()
+
+    count = 0
+    found_subdomains = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        futures = {executor.submit(get_chars_for_subdomain,subdomain.strip()): subdomain for subdomain in subs if subdomain[0] != "#"}
+        for future in concurrent.futures.as_completed(futures):
+            sub = futures[future]
+            if future.result() != response_www_value:
+                found_subdomains.append([f"{sub.strip()}.{hostname}",protocol])
+    return {str(port):found_subdomains}
+
 
 def feroxbuster(protocol,hostname,port):
-    feroxbuster = AttackThread(
+    AttackThread(
         f"feroxbuster_{hostname}_{port}", port, ["/usr/bin/feroxbuster",
                         "-u",
                         f"{protocol}://{hostname}:{port}/",
@@ -34,15 +62,11 @@ def feroxbuster(protocol,hostname,port):
                         "150",
                         "-C",
                         "404",
-                        "-w", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"])
-    feroxbuster.start()
-    return feroxbuster
+                        "-w", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"]).start()
 
 
 def cmsScan(protocol,hostname,port):
-    cmsScan = AttackThread(f"cmsScan_{hostname}_{port}", port, f"/usr/bin/python /home/kali/tools/CMSeeK/cmseek.py -u {protocol}://{hostname}:{port} --batch -r")
-    cmsScan.start()
-    return cmsScan
+    AttackThread(f"cmsScan_{hostname}_{port}", port, f"/usr/bin/python /home/kali/tools/CMSeeK/cmseek.py -u {protocol}://{hostname}:{port} --batch -r").start()
 
 
 def crawl_web_data(protocol,hostname,port):

@@ -8,14 +8,14 @@ import traceback
 import signal
 import sys
 import json
-
+from datacontainer import *
 
 def print_info(stdscr, info_list):
     stdscr.addstr(f"\n\n")
-    try:
-        for data in info_list[offset:]:
+    for data in info_list:
+        try:
             stdscr.addstr(f"\n{data}")
-    except: pass
+        except: pass
 
 
 def print_logs(stdscr, logs):

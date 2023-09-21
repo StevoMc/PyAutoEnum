@@ -5,10 +5,9 @@ import time
 import signal
 from utils import log_info,log_error
 import traceback
-
+from datacontainer import *
 
 class AttackThread(threading.Thread):
-    path = ""
     running_count = 0
     finished_count = 0
     error_count = 0
@@ -23,7 +22,7 @@ class AttackThread(threading.Thread):
         self.command = command
         self.command_args = command_args
         self.command_kwargs = command_kwargs
-        self.filename = os.path.join(AttackThread.path, f"{self.name}.txt")
+        self.filename = os.path.join(get_working_dir(), f"{self.name}.txt")
         self.daemon = True
         self.output = None
         self.analyse = analyse
@@ -31,6 +30,7 @@ class AttackThread(threading.Thread):
     def run(self):
         from scan import check_module_finished
         if check_module_finished(self.name, self.port):
+            AttackThread.finished_count+=1
             return
 
         log_info(f"Started Module: {self.name}")

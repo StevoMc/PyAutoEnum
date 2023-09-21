@@ -9,15 +9,9 @@ import socket
 import time
 import threading
 import traceback
-import yaml
+from datacontainer import *
 
 logs=[]
-
-
-
-def load_modules(file_path):
-    with open(file_path, 'r') as yaml_file:
-        return yaml.safe_load(yaml_file)["attacks"]
 
 def get_hostnames(ip, port):
     hostnames = []
@@ -114,7 +108,7 @@ def log_success(text):
 
 def _write_log(text):
     logs.append(str(text))
-    with open("logs.txt", "a") as file:
+    with open(get_working_dir()+"logs.txt", "a") as file:
         file.write(str(text)+"\n")
         file.close()
 
@@ -142,8 +136,8 @@ def process_new_hostname(hostname):
     if check_resolve_host(hostname):
         return True
     else:
-        write_log(f"[!] Non resolvable hostname found: {hostname}")
-        write_log("[*] Add the host to /etc/hosts ('add') or ignore this warning ('ignore')")
+        log_warning(f"Non resolvable hostname found: {hostname}")
+        log_warning("Add the host to /etc/hosts ('add') or ignore this warning ('ignore')")
         from scan import get_command
         from commands import prompt_lock
         with prompt_lock:
@@ -153,16 +147,16 @@ def process_new_hostname(hostname):
                 cmd = get_command()
 
             if cmd == "add":
-                write_log("[+] Checking if host can get resolved now ...")
+                log_info("Checking if host can get resolved now ...")
                 if check_resolve_host(hostname):
-                    write_log(f"[+] Successfully resolved {hostname}")
+                    log_success(f"[+] Successfully resolved {hostname}")
                     return True
                 else:
-                    write_log(f"[!] Could not resolve hostname {hostname}")
-                    write_log("[!] Exiting ...")
+                    log_error(f"Could not resolve hostname {hostname}")
+                    log_error("[!] Exiting ...")
                     exit(1)
             if cmd == "ignore":
-                write_log(f"[!] Ignoring host resolve warning for {hostname}")
+                log_warning(f"[!] Ignoring host resolve warning for {hostname}")
                 return False
 
 
