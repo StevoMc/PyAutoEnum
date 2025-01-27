@@ -68,6 +68,10 @@ def feroxbuster(protocol,hostname,port):
 def cmsScan(protocol,hostname,port):
     AttackThread(f"cmsScan_{hostname}_{port}", port, f"/usr/bin/python /home/kali/tools/CMSeeK/cmseek.py -u {protocol}://{hostname}:{port} --batch -r").start()
 
+def whatWebScan(protocol,hostname,port):
+    AttackThread(f"whatWebScan_{hostname}_{port}", port, f"whatweb {protocol}://{hostname}:{port}").start()
+
+
 
 def crawl_web_data(protocol,hostname,port):
     response = requests.get(f"{protocol}://{hostname}:{port}")

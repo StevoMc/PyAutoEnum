@@ -75,8 +75,7 @@ def scan_webserver(target, port, hostname, protocol):
     # wenn keine gefunden, alles an
 
     #Start Sub Domain Brute
-    if hostname != target:
-        AttackThread("wfuzz_sub_brute",port, wfuzz_sub_brute, command_args=[protocol,hostname,port], analyse=analyse_wfuzz_sub_brute).start()
+    AttackThread("wfuzz_sub_brute",port, wfuzz_sub_brute, command_args=[protocol,hostname,port], analyse=analyse_wfuzz_sub_brute).start()
 
     #Start Feroxbuster Dir Bruteforce
 #   feroxbuster(protocol,hostname,port)
@@ -86,6 +85,9 @@ def scan_webserver(target, port, hostname, protocol):
 
     #CMS Scan
     cmsScan(protocol,hostname,port)
+
+    # WhatWeb scann
+    whatWebScan(protocol,hostname,port)
 
 
 def get_data():
