@@ -1,14 +1,14 @@
 import threading
 import traceback
-from utils import log_interaction, log_info, log_error, get_console_width, truncate_value
-from datacontainer import *
+from core.logging_utils import log_interaction, log_info, log_error
+from core.config import *
 
 prompt_lock = threading.Lock()
 
 def command_help(cmd=None):
     if cmd:
         log_info(f"help {cmd} called")
-    else: log_info("help")
+    else: log_info('Commands: '+", ".join(command_dict.keys()))
 
 
 def command_show(args):
@@ -17,21 +17,23 @@ def command_show(args):
         return
     port = args[0]
 
-    from scan import open_ports
+    from core.scan_manager import open_ports
     ddata = []
     ddata.append(f"Information about port [{port}]")
 
     for key, value in open_ports[port].items():
         ddata.append(f"{key}: {value}")
     log_info(ddata)
-    set_display_data(ddata)
+    Config.display_data = ddata
 
 
 def command_back(args):
-    set_display_data([])
+    Config.display_data =[]
 
 
 def execute_command(user_input):
+    log_interaction(command)
+    
     # Split the user input into tokens
     tokens = user_input.split()
 

@@ -1,18 +1,11 @@
-import threading
-import subprocess
-import os
-from attackThread import AttackThread
-from utils import *
-from smb_utils import *
-from utils import *
+import sys
+from core.utils import *
+from core.smb_utils import *
+from core.utils import *
 from analyse import *
 import nmap
-from bs4 import BeautifulSoup
 import concurrent.futures
 
-
-def nikto(protocol,hostname, port):
-    AttackThread(f"nikto_{hostname}_{port}", port, ["/usr/bin/nikto", "--url", f"{protocol}://{hostname}:{port}"]).start()
 
 
 def wfuzz_sub_brute(protocol,hostname,port, threads=500):
@@ -49,30 +42,6 @@ def wfuzz_sub_brute(protocol,hostname,port, threads=500):
     return {str(port):found_subdomains}
 
 
-def feroxbuster(protocol,hostname,port):
-    AttackThread(
-        f"feroxbuster_{hostname}_{port}", port, ["/usr/bin/feroxbuster",
-                        "-u",
-                        f"{protocol}://{hostname}:{port}/",
-                        "-A",
-                        "-E",
-                        "--no-state",
-                        "--smart",
-                        "--threads",
-                        "150",
-                        "-C",
-                        "404",
-                        "-w", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"]).start()
-
-
-def cmsScan(protocol,hostname,port):
-    AttackThread(f"cmsScan_{hostname}_{port}", port, f"/usr/bin/python /home/kali/tools/CMSeeK/cmseek.py -u {protocol}://{hostname}:{port} --batch -r").start()
-
-def whatWebScan(protocol,hostname,port):
-    AttackThread(f"whatWebScan_{hostname}_{port}", port, f"whatweb {protocol}://{hostname}:{port}").start()
-
-
-
 def crawl_web_data(protocol,hostname,port):
     response = requests.get(f"{protocol}://{hostname}:{port}")
     content = response.text
@@ -106,21 +75,45 @@ def crawl_web_data(protocol,hostname,port):
         'content':content
     }
 
-def check_open_ports(ip,args):
-    nm = nmap.PortScanner()
-    nm.scan(ip, arguments=args)
-    scan_res ={"0":{"modules":[]}}
+def check_open_ports(ip, args):
+    try:
+        if sys.platform == "win32":
+            nmap_path = [r'C:\\Program Files (x86)\\Nmap\\nmap.exe']
+            nm = nmap.PortScanner(nmap_search_path=nmap_path)
+        else:
+            nm = nmap.PortScanner()
+    except nmap.PortScannerError as e:
+        log_warning(f"Error: Nmap not found or could not be initialized: {e}")
+        return {}
+    except Exception as e:
+        log_warning(f"Unexpected error initializing Nmap: {e}")
+        return {}
+    
+    try:        
+        nm.scan(ip, arguments=args)
+    except nmap.PortScannerError as e:
+        log_warning(f"Error scanning {ip}: {e}")
+        return {}
+    except Exception as e:
+        log_warning(f"Unexpected error during scanning: {e}")
+        return {}
+    
+    scan_res = {}
     for host in nm.all_hosts():
-        for port in nm[host]['tcp']:
-            port_info = {
-                'service': nm[host]['tcp'][port]['name'],
-                'version': nm[host]['tcp'][port]['version'],
-                'product': nm[host]['tcp'][port]['product'],
-             'hostnames' : get_hostnames(ip, str(port)),
-                "modules": [],
-                   "info":{}
-            }
-            scan_res[str(port)] = port_info
+        for port in nm[host].get('tcp', {}):
+            try:
+                port_info = {
+                    'service': nm[host]['tcp'][port].get('name', ''),
+                    'version': nm[host]['tcp'][port].get('version', ''),
+                    'product': nm[host]['tcp'][port].get('product', ''),
+                    'hostnames': get_hostnames(ip, str(port)),
+                    'modules': [],
+                    'info': {}
+                }
+                scan_res[str(port)] = port_info
+            except Exception as e:
+                log_warning(f"Error processing port {port} on {host}: {e}")
+    
     return scan_res
 
 

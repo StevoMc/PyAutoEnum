@@ -1,17 +1,14 @@
+import yaml
+from ping3 import ping
+import shutil
 from bs4 import BeautifulSoup
-import subprocess
 import requests
 import re
 from urllib.parse import urlparse
-from tabulate import tabulate
-from collections import OrderedDict
 import socket
 import time
-import threading
 import traceback
-from datacontainer import *
-
-logs=[]
+from core.logging_utils import log_error,log_info,log_success,log_warning
 
 def get_hostnames(ip, port):
     hostnames = []
@@ -52,15 +49,13 @@ def get_hostname_from_header(ip, port, protocol):
         pass
     return None
 
+def get_hostname_from_url(url):
+    parsed_url = urlparse(url)
+    return parsed_url.hostname if parsed_url.hostname else url
 
 def check_target_up(ip):
-    try:
-        output = subprocess.check_output(f"ping -c 2 {ip}", shell=True, timeout=5)
-        return True
-    except subprocess.CalledProcessError:
-        return False
-    except subprocess.TimeoutExpired:
-        return False
+    response = ping(ip, timeout=5)
+    return response is not None
 
 
 def merge_dicts(dict1, dict2):
@@ -86,36 +81,6 @@ def merge_dicts(dict1, dict2):
     return result
 
 
-def log_interaction(text):
-    _write_log("[->] "+str(text))
-
-
-def log_error(text):
-    _write_log("[-] "+str(text))
-
-
-def log_warning(text):
-    _write_log("[!] "+str(text))
-
-
-def log_info(text):
-    _write_log("[*] "+str(text))
-
-
-def log_success(text):
-    _write_log("[+] "+str(text))
-
-
-def _write_log(text):
-    logs.append(str(text))
-    with open(get_working_dir()+"logs.txt", "a") as file:
-        file.write(str(text)+"\n")
-        file.close()
-
-def get_logs():
-    return logs
-
-
 def check_resolve_host(hostname):
     try:
         socket.gethostbyname(hostname)
@@ -138,8 +103,8 @@ def process_new_hostname(hostname):
     else:
         log_warning(f"Non resolvable hostname found: {hostname}")
         log_warning("Add the host to /etc/hosts ('add') or ignore this warning ('ignore')")
-        from scan import get_command
-        from commands import prompt_lock
+        from core.scan_manager import get_command
+        from ui.commands import prompt_lock
         with prompt_lock:
             cmd = get_command()
             while cmd != "add" and cmd != "ignore":
@@ -168,10 +133,9 @@ def truncate_value(value, width):
 
 def get_console_width():
     try:
-        width = int(subprocess.check_output(['tput', 'cols']))
-        return width
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
+        return shutil.get_terminal_size().columns
+    except AttributeError:
+        return None  # Fallback if running on an unsupported environment
 
 
 def is_default_page(response):
@@ -199,3 +163,31 @@ def is_default_page(response):
             return None
     except:
         log_error(traceback.format_exc())
+        
+        
+def load_modules(config_file):
+    # Load file
+    with open(config_file, "r", encoding="utf-8") as file:
+        modules = yaml.safe_load(file)
+        
+    checked_modules = []
+    failed_modules = []    
+    for attack in modules:
+        if check_command_installed(attack.get("command")): 
+            checked_modules.append(attack)    
+        else: 
+            failed_modules.append(attack.get("name"))            
+            
+    count_loaded = len(modules)
+    count_errors = len(failed_modules)
+    log_success(f"Loaded {count_loaded-count_errors}/{count_loaded} Attack Modules")
+    if failed_modules: 
+        log_warning(f"Failed to load {len(failed_modules)} Attack Modules: [{','.join(failed_modules)}]")
+    
+    return checked_modules
+
+def check_command_installed(command):
+    """Check if the given command is installed on the system."""
+    if shutil.which(command) is None:        
+        return False
+    return True

@@ -1,48 +1,31 @@
-attacks:
-  - name: Nikto Web Vulnerability Scan
-    description: Scan for web vulnerabilities using Nikto
-    command: /usr/bin/nikto
-    switches:
-      - "--url"
-      - "[protocol]://[hostname]:[port]"
-    requirements:
-      - protocol:
-        - HTTP
-    analyse_function: analyse_nikto
+- name: Nikto
+  description: Scan for web vulnerabilities using Nikto
+  protocol: 
+    - http
+    - https
+  command: /usr/bin/nikto
+  switches:
+    - "--url"
+    - "[protocol]://[hostname]:[port]"
+  analyse_function: analyse_nikto
 
-  - name: WFUZZ Subdomain Brute Force
-    description: Brute force subdomains using WFUZZ
-    command: /usr/bin/wfuzz
-    switches:
-      - "-c"
-      - "-z"
-      - "stdin"
-      - "-H"
-      - "Host:FUZZ.[hostname]"
-      - "-u"
-      - "[protocol]://[hostname]:[port]"
-    requirements:
-      - protocol:
-        - HTTP
-    analyse_function: analyse_wfuzz_sub_brute
-
-  - name: Feroxbuster Web Directory Scan
-    description: Scan for web directories using Feroxbuster
-    command: /usr/bin/feroxbuster
-    switches:
-      - "-u"
-      - "[protocol]://[hostname]:[port]/"
-      - "-A"
-      - "-E"
-      - "--no-state"
-      - "--smart"
-      - "--threads"
-      - "150"
-      - "-C"
-      - "404"
-      - "-w"
-      - "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
-    requirements:
-      - protocol:
-        - HTTP
-    analyse_function: analyse_feroxbuster
+- name: Feroxbuster
+  description: Scan for web directories using Feroxbuster
+  protocol: 
+    - http
+    - https
+  command: /usr/bin/feroxbuster
+  switches:
+    - "-u"
+    - "[protocol]://[hostname]:[port]/"
+    - "-A"
+    - "-E"
+    - "--no-state"
+    - "--smart"
+    - "--threads"
+    - "150"
+    - "-C"
+    - "404"
+    - "-w"
+    - "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+  analyse_function: analyse_feroxbuster

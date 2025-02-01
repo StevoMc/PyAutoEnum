@@ -1,10 +1,9 @@
-from smb.SMBConnection import SMBConnection
-from utils import *
+from smb.SMBConnection import SMBConnection as samr
+from core.utils import *
 import os
-import traceback
 import random
 import string
-from impacket.dcerpc.v5 import samr, transport
+#from impacket.dcerpc.v5 import samr, transport
 
 
 def get_users_and_groups(target_ip, username="", password=""):
