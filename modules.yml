@@ -1,6 +1,38 @@
+# reserved placeholders 
+# - [outfile]
+# - [protocol]
+# - [hostname]
+# - [port]
+
+# ------------- custom python modules
+
+- name: full_nmap
+  description: Nmap Version Scan
+  command: check_open_ports
+  switches:
+    - "[hostname]"
+    - "-p 443"
+    - "-sV"
+    - "-oN [outfile]"
+  analyse_function: analyse_full_nmap
+
+- name: subdomain_enum_brute
+  description: subdomain Scan
+  command: subdomain_enum_brute
+  switches:    
+    - "/usr/share/seclists/Discovery/DNS/subdomains-top1million-20000.txt"
+  protocols: 
+    - http
+    - https
+  analyse_function: analyse_subdomain_enum_brute
+
+
+# ------------- external modules
+
+
 - name: Nikto
   description: Scan for web vulnerabilities using Nikto
-  protocol: 
+  protocols: 
     - http
     - https
   command: /usr/bin/nikto
@@ -11,9 +43,9 @@
 
 - name: Feroxbuster
   description: Scan for web directories using Feroxbuster
-  protocol: 
-    - http
-    - https
+  protocols: 
+      - http
+      - https
   command: /usr/bin/feroxbuster
   switches:
     - "-u"

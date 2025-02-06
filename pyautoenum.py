@@ -4,34 +4,40 @@ import argparse
 import signal
 import json
 from pathlib import Path
-from core.config import *
-from core.logging_utils import get_logs
-from core.scan_manager import *
-
+from core.config import Config
+from core.scan import ScanThread
+from core.data_classes import TargetInfo
+from ui.commands import send_command
+from core.attack_thread import AttackThread
+from core.utils import get_hostname_from_url, is_ip_address, get_console_width, truncate_value
 
 def print_info(stdscr, info_list):
-    """Prints the given info list to the stdscr window."""
     stdscr.addstr("\n\n")
     for data in info_list:
         try:
             stdscr.addstr(f"\n{data}")
         except Exception as e:
-            log_error(f"Exception printing info: {e}")
+            Config.log_error(f"Exception printing info: {e}")
 
 
-def print_logs(stdscr, logs):
-    """Prints the last 15 logs to the stdscr window."""
-    stdscr.addstr("\n\n" + "\n".join(logs[-15:]))
+def print_logs(stdscr):
+    stdscr.addstr("\n\n" + "\n".join(Config.get_logs()[-15:]))
 
 
-def print_data(data_win, data_unordered):
+def exit_handler(sig, frame):
+    Config.log_warning("\nCtrl+C detected!")
+    Config.target_info.save_to_file()
+    exit()
+
+def print_data(data_win):
+    data_unordered = Config.target_info.get_ports()
     """Prints formatted data in a window."""
     if not data_unordered:
         data_win.addstr("Waiting for data...\n")
         return
 
     console_width = get_console_width() - 20
-    custom_order = ["service", "product", "version", "modules"]
+    custom_order = ["protocol", "product", "version", "modules"]
     data = {}
 
     # Format data based on custom order
@@ -59,122 +65,90 @@ def print_data(data_win, data_unordered):
         data_win.addstr(row_line + "\n")
 
 
-def save_data():
-    """Saves the session data to a file."""
-    try:
-        with open_ports_lock:
-            save_path = Config.path / "pyae_save.json"
-            with open(save_path, "w") as file:
-                json.dump(get_data(), file)
-    except Exception as e:
-        log_error(f"Exception in save_data: {e}")
-
-
-def exit_handler(sig, frame):
-    """Handles exit signals."""
-    log_warning("\nCtrl+C detected!")
-    save_data()
-    exit()
-
-
-def main(stdscr, target, ports):
-    """Main function that runs the curses UI and manages the scanning process."""
-    # Initialise Window
-    stdscr = curses.initscr()
-    stdscr.nodelay(1)
-    stdscr.refresh()
+def main(stdscr):
     curses.noecho()
     curses.cbreak()
-    stdscr.move(0, 0)
+    curses.curs_set(1)
+    stdscr.nodelay(1)
+    stdscr.refresh()
+
     height, width = stdscr.getmaxyx()
-    data_win_height = height - 1
-    data_win = curses.newwin(data_win_height, width, 0, 0)
-    input_win = curses.newwin(1, width, data_win_height, 0)
-    input_win.nodelay(True)
-    data_win.clear()
-    input_win.clear()
+    data_win = curses.newwin(height - 1, width, 0, 0)
+    input_win = curses.newwin(1, width, height - 1, 0)
+    input_win.nodelay(True)    
 
-    # Start Scan
-    myScan = ScanThread(target, ports, open_ports_save)
+    myScan = ScanThread()
     myScan.start()
-
-    counter = 0
-    global offset
-    try:
-        input_str = ""
-        while True:
-            input_win.clear()
-            data_win.clear()
-            time.sleep(0.01)
-            data_win.addstr(f"Modules: {AttackThread.running_count} running, {AttackThread.finished_count} finished, {AttackThread.error_count} errors\n\n")
-            print_data(data_win, get_data())
-            display_data = Config.display_data
-            if display_data:
-                print_info(data_win, display_data)
-            else:
-                print_logs(data_win, get_logs())
-            data_win.refresh()
-
-            # Check for user input
-            input_win.addstr(f"Enter command: {input_str}")
-            ch = input_win.getch()
-            if ch == ord('\n'):  # Enter key
-                try:
-                    if input_str == "exit": break
-                    send_command(input_str)
-                    input_str = ""
-                except ValueError:
-                    input_str = ""
-            elif ch == ord('\b') or ch == 127:  # Backspace
-                input_str = input_str[:-1]
-            elif ch != -1:
-                input_str += chr(ch)
-            input_win.refresh()
-
-    except Exception as e:
-        log_error(f"Exception in pyautoenum.py: {e}")
-    finally:
-        save_data()
+    
+    input_str = ""
+    while True:        
+        data_win.clear()
+        input_win.clear()
+        time.sleep(0.01)
+        data_win.addstr(f"Modules: Running {AttackThread.running_count}, Finished {AttackThread.finished_count}, Errors {AttackThread.error_count}\n\n")
+        print_data(data_win)
+        
+        if Config.display_data:
+            print_info(data_win, Config.display_data)
+        else:
+            print_logs(data_win)
+        
+        data_win.refresh()
+        
+        # Check for user input
+        input_win.addstr(f"Enter command: {input_str}")
+        ch = input_win.getch()
+        if ch == ord('\n'):  # Enter key
+            try:
+                if input_str == "exit": break
+                send_command(input_str)
+                input_str = ""
+            except ValueError:
+                input_str = ""
+        elif ch == ord('\b') or ch == 127:  # Backspace
+            input_str = input_str[:-1]
+        elif ch != -1:
+            input_str += chr(ch)
+        input_win.refresh()
 
 
 if __name__ == "__main__":
-    """Main entry point for the program."""
-    # Parse Arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', help='Path to store the output files', required=False)
-    parser.add_argument('-t', "--target", help='Target ip or hostname', required=True)
-    parser.add_argument("--banner", help='Show welcome banner')
-    parser.add_argument('-n', "--newsession", action='store_true', help='New Session, do not use saved session data', required=False)
-    parser.add_argument('-p', "--ports", help='Target ports', required=False)
-
+    parser.add_argument('--path', help='Path to store output files', required=False)
+    parser.add_argument('-t', "--target", help='Target IP or hostname', required=True)
+    parser.add_argument("--banner", help='Show welcome banner', action='store_true')
+    parser.add_argument('-n', "--newsession", action='store_true', help='New session, do not use saved session data')
     args = parser.parse_args()
 
-    # Init Config
     Config.path = Path(args.path) if args.path else Path(args.target)
     Config.path = Config.path.resolve()
+    Config.path.mkdir(parents=True, exist_ok=True)
+    Config.load_modules("modules.yml")
 
-    # Ensure the directory exists
-    if not Config.path.exists():
-        Config.path.mkdir(parents=True)
+    target_info = None
+    saved_file = Config.path / "pyae_save.json"
+    if not args.newsession and saved_file.exists():
+        try:
+            with open(saved_file) as file:
+                Config.target_info = TargetInfo.from_dict(json.load(file))
+                Config.log_success(f"[+] Loaded session for {Config.path}")
+        except Exception as e:
+            Config.log_error(f"Exception loading session: {e}")
 
-    Config.modules = load_modules("modules.yml")
-    
-    
-    open_ports_save = {}
-    if not args.newsession:
-        saved_file = Config.path / "pyae_save.json"
-        if saved_file.exists():
-            try:
-                with open(saved_file) as file:
-                    open_ports_save = json.load(file)
-                    if open_ports_save:
-                        log_success(f"[+] Loaded session for {Config.path}")
-            except Exception as e:
-                log_error(f"Exception in load session: {e}")
-    elif args.banner:
-        # Display Banner
+    if Config.target_info is None:
+        target = args.target
+        ip = target if is_ip_address(target) else ""
+        hostname_from_url = get_hostname_from_url(target)
+        if hostname_from_url and get_hostname_from_url != ip:
+            hostname = hostname_from_url
+        else: hostname=""
+        # Erzeuge eine neue TargetInfo-Instanz, wenn keine Session vorhanden ist
+        Config.target_info = TargetInfo(config=Config, ip=ip, hostname=hostname)
+        
+
+    if args.banner:
         from ui.banner import animation_loop
         curses.wrapper(animation_loop)
-
+    
     signal.signal(signal.SIGINT, exit_handler)
-    curses.wrapper(main, args.target, args.ports)
+    curses.wrapper(main)

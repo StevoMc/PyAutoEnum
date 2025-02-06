@@ -1,29 +1,43 @@
 import threading
 import traceback
-from core.logging_utils import log_interaction, log_info, log_error
-from core.config import *
+from core.config import Config
 
 prompt_lock = threading.Lock()
 
+
+command = ""
+def send_command(cmd):
+    """Executes a command via the UI."""
+    global command
+    command = cmd    
+    if command:
+        with prompt_lock:
+            execute_command(command)
+    command = ""
+
+def get_command():
+    """Returns the last issued command."""
+    return command
+
 def command_help(cmd=None):
     if cmd:
-        log_info(f"help {cmd} called")
-    else: log_info('Commands: '+", ".join(command_dict.keys()))
+        Config.log_info(f"help {cmd} called")
+    else: Config.log_info('Commands: '+", ".join(command_dict.keys()))
 
 
 def command_show(args):
     if len(args) == 0:
-        log_interaction("Useage: show {port}")
+        Config.log_interaction("Useage: show [port]")
         return
+    
     port = args[0]
-
-    from core.scan_manager import open_ports
     ddata = []
     ddata.append(f"Information about port [{port}]")
 
-    for key, value in open_ports[port].items():
+    for key, value in Config.target_info.get_port(port).to_dict().items():
         ddata.append(f"{key}: {value}")
-    log_info(ddata)
+        
+    Config.log_info(ddata)
     Config.display_data = ddata
 
 
@@ -32,7 +46,7 @@ def command_back(args):
 
 
 def execute_command(user_input):
-    log_interaction(command)
+    Config.log_interaction(user_input)
     
     # Split the user input into tokens
     tokens = user_input.split()
@@ -47,9 +61,9 @@ def execute_command(user_input):
     # Check if the command exists in the dictionary
     if command in command_dict:
         try: result = command_dict[command](args)
-        except: log_error(f"Error in execution of command '{command}' with args '{args}':\n{traceback.format_exc()}")
+        except: Config.log_error(f"Error in execution of command '{command}' with args '{args}':\n{traceback.format_exc()}")
     else:
-        log_interaction("Command not found. Use 'help' to list commands")
+        Config.log_interaction("Command not found. Use 'help' to list commands")
 
 
 # Define a dictionary to map commands to functions or actions

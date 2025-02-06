@@ -1,1 +1,1 @@
-{"443": {"service": "https, http", "version": "", "product": "Apache httpd", "hostnames": [["kama-webservice.de", "https"]], "modules": [], "info": {}}}
+{"ip": "", "hostname": "kama-webservice.de", "ports": {"443": {"protocol": "", "version": "", "product": "", "hostnames": [], "modules": [], "infos": {}}}}

@@ -1,40 +1,9 @@
-import yaml
 from ping3 import ping
 import shutil
 from bs4 import BeautifulSoup
 import requests
 import re
 from urllib.parse import urlparse
-import socket
-import time
-import traceback
-from core.logging_utils import log_error,log_info,log_success,log_warning
-
-def get_hostnames(ip, port):
-    hostnames = []
-    for protocol in ["https", "http"]:
-        hostname = get_hostname_from_header(ip, port, protocol)
-        if hostname and [hostname, protocol] not in hostnames:
-            if process_new_hostname(hostname):
-                try:
-                    if socket.gethostbyname(hostname) == ip:
-                        hostnames.append([hostname, protocol])
-                except socket.gaierror:
-                    pass
-        try:
-            response = requests.get(f"{protocol}://{ip}:{port}", timeout=2)
-            if response.status_code == 200 and [ip, protocol] not in hostnames:
-                hostnames.append([ip, protocol])
-        except requests.RequestException as e:
-            if protocol == "http" and "host=" in str(e) and "Failed to resolve" in str(e):
-                unresolved_host = re.search(r"Failed to resolve '(.+?)'", str(e)).group(1)
-                if process_new_hostname(unresolved_host) and [unresolved_host, protocol] not in hostnames:
-                    try:
-                        if socket.gethostbyname(hostname) == ip:
-                            hostnames.append([unresolved_host,protocol])
-                    except socket.gaierror:
-                        pass
-    return hostnames
 
 
 def get_hostname_from_header(ip, port, protocol):
@@ -51,11 +20,28 @@ def get_hostname_from_header(ip, port, protocol):
 
 def get_hostname_from_url(url):
     parsed_url = urlparse(url)
-    return parsed_url.hostname if parsed_url.hostname else url
+    return parsed_url.hostname if parsed_url.hostname else None
 
 def check_target_up(ip):
     response = ping(ip, timeout=5)
     return response is not None
+
+def is_ip_address(string):
+    """Checks if the string is a valid IPv4 or IPv6 address."""
+    # Regular expression for validating IPv4 address
+    ipv4_pattern = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+    if ipv4_pattern.match(string):
+        # Check if all octets are between 0 and 255
+        parts = string.split('.')
+        if all(0 <= int(part) <= 255 for part in parts):
+            return True
+    
+    # Regular expression for validating IPv6 address
+    ipv6_pattern = re.compile(r'^[0-9a-fA-F:]{2,39}$')
+    if ipv6_pattern.match(string):
+        return True
+    
+    return False
 
 
 def merge_dicts(dict1, dict2):
@@ -81,14 +67,6 @@ def merge_dicts(dict1, dict2):
     return result
 
 
-def check_resolve_host(hostname):
-    try:
-        socket.gethostbyname(hostname)
-        return True
-    except socket.gaierror:
-        return False
-
-
 def check_http_connection(protocol,ip,port,timeout=2):
     try:
         response = requests.get(f"{protocol}://{ip}:{port}", timeout=timeout)
@@ -96,33 +74,6 @@ def check_http_connection(protocol,ip,port,timeout=2):
             return True
     except requests.RequestException as e:
         return False
-
-def process_new_hostname(hostname):
-    if check_resolve_host(hostname):
-        return True
-    else:
-        log_warning(f"Non resolvable hostname found: {hostname}")
-        log_warning("Add the host to /etc/hosts ('add') or ignore this warning ('ignore')")
-        from core.scan_manager import get_command
-        from ui.commands import prompt_lock
-        with prompt_lock:
-            cmd = get_command()
-            while cmd != "add" and cmd != "ignore":
-                time.sleep(1)
-                cmd = get_command()
-
-            if cmd == "add":
-                log_info("Checking if host can get resolved now ...")
-                if check_resolve_host(hostname):
-                    log_success(f"[+] Successfully resolved {hostname}")
-                    return True
-                else:
-                    log_error(f"Could not resolve hostname {hostname}")
-                    log_error("[!] Exiting ...")
-                    exit(1)
-            if cmd == "ignore":
-                log_warning(f"[!] Ignoring host resolve warning for {hostname}")
-                return False
 
 
 def truncate_value(value, width):
@@ -162,32 +113,4 @@ def is_default_page(response):
         else:
             return None
     except:
-        log_error(traceback.format_exc())
-        
-        
-def load_modules(config_file):
-    # Load file
-    with open(config_file, "r", encoding="utf-8") as file:
-        modules = yaml.safe_load(file)
-        
-    checked_modules = []
-    failed_modules = []    
-    for attack in modules:
-        if check_command_installed(attack.get("command")): 
-            checked_modules.append(attack)    
-        else: 
-            failed_modules.append(attack.get("name"))            
-            
-    count_loaded = len(modules)
-    count_errors = len(failed_modules)
-    log_success(f"Loaded {count_loaded-count_errors}/{count_loaded} Attack Modules")
-    if failed_modules: 
-        log_warning(f"Failed to load {len(failed_modules)} Attack Modules: [{','.join(failed_modules)}]")
-    
-    return checked_modules
-
-def check_command_installed(command):
-    """Check if the given command is installed on the system."""
-    if shutil.which(command) is None:        
-        return False
-    return True
+        return None

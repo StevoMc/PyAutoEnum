@@ -1,5 +1,5 @@
 from smb.SMBConnection import SMBConnection as samr
-from core.utils import *
+from core.config import *
 import os
 import random
 import string
@@ -96,6 +96,6 @@ def download_files_from_shares(conn, shares_dict, working_dir):
                                 conn.retrieveFile(share_name, '/' + file.filename, local_file)
                                 files_downloaded+=1
             except:
-                log_warning(f"Error downloading smb files from {share_name}")
+                Config.log_warning(f"Error downloading smb files from {share_name}")
     if files_downloaded > 0:
-        log_success(f"Downloaded a total of {files_downloaded} from smb")
+        Config.log_success(f"Downloaded a total of {files_downloaded} from smb")

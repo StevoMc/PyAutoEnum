@@ -1,1 +1,0 @@
-# Nmap 7.95 scan initiated Sat Feb  1 17:46:56 2025 as: "C:\\\\Program Files (x86)\\\\Nmap\\\\nmap.exe" -oX - -Pn -p 443 -sV -oN C:PyAutoEnumkama-testNmap_Version_Scan.txt kama-webservice.de

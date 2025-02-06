@@ -1,70 +1,91 @@
+import traceback
 import threading
 import subprocess
-from core.utils import log_info, log_error
-from core.config import Config
-from typing import Callable, List, Optional
-
+from core.data_classes import *
+from core.config import *
+from custom_modules import *
 
 class AttackThread(threading.Thread):
     running_count = 0
     finished_count = 0
     error_count = 0
 
-    def __init__(self, name, port, command, command_args=[], command_kwargs={}, analyse=None):
-        if command_args is None:
-            command_args = []
-        if command_kwargs is None:
-            command_kwargs = {}
+    def __init__(self, target_info: TargetInfo, module: Module, port: int):
+        """
+        Initializes an attack thread for running a module against a specific target.
 
+        :param target_info: Instance of TargetInfo managing the target's state.
+        :param module: Instance of Module representing the attack module.
+        :param port: Target port.
+        :param protocol: Protocol (e.g., "http", "smb").
+        :param hostname: The target hostname.
+        """
         super().__init__()
-        self.name = name.replace(" ","_")
-        self.filename = Config.path / f"{self.name}.txt"
-        self.port = port        
-        self.command = command
-        self.command_args = [arg.replace("[path]", str(self.filename)) for arg in command_args]
-        self.command_kwargs = command_kwargs        
+        self.target_info = target_info
+        self.module = module
+        self.port = port or 0
+        self.filename = module.output_file
         self.daemon = True
         self.output = None
-        self.analyse = analyse
+
+    def return_callable_func(self, cmd):
+        if cmd in globals().keys():
+                func = globals()[cmd]
+                if callable(func): 
+                    return func
+        raise NameError(f"{self.module.name}: Function {cmd} not found")
 
     def run(self):
-        """Runs the attack process in the thread."""
-        from core.scan_manager import complete_module
+        """Runs the attack process in the thread and updates TargetInfo."""
         try:
-            log_info(f"Started Module: {self.name}")
+            Config.log_info(f"Started Module: {self.module.name}")
             AttackThread.running_count += 1
-
-            # Run command (either callable or external process)
-            if callable(self.command):
-
-                self.output = self.command(*self.command_args, **self.command_kwargs)
+                
+            func = self.return_callable_func(self.module.command)        
+            if func:
+                # Run command (callable function or external command)
+                switches = self.format_switches()
+                self.output = func(self.target_info, self.port, switches)
             else:
                 self._run_external_command()
 
-            log_info(f"Finished {self.name}")
-            complete_module(self.name, self.port)
-            AttackThread.finished_count += 1
+            Config.log_info(f"Finished {self.module.name}")
 
-        except Exception as e:
-            log_error(f"Exception in attackThread.py: {e}")
-            AttackThread.error_count += 1
-        finally:
-            AttackThread.running_count -= 1
+            # Mark module as completed in TargetInfo
+            self.target_info.complete_module(self.port, self.module.name)
+            AttackThread.finished_count += 1
             self._process_analysis()
 
+        except Exception as e:
+            Config.log_error(f"Exception in AttackThread ({self.module.name}): \n{traceback.format_exc()}")            
+            AttackThread.error_count += 1
+        finally:
+            AttackThread.running_count -= 1            
+            
+    def format_switches(self):        
+        port_data = self.target_info.get_port(self.port)
+        return [ switch.replace("[protocol]", port_data.protocol if port_data else f"port_{self.port}_no_data")
+                .replace("[hostname]", self.target_info.get_host())
+                .replace("[port]", str(self.port))                
+        for switch in self.module.switches]
+        
+
     def _run_external_command(self):
-        """Runs the external command and captures output to a file."""
+        """Runs an external command and captures output to a file."""
         try:
             with open(self.filename, "w") as outfile:
-                self.process = subprocess.call(self.command, stdout=outfile, stderr=outfile, shell=True)
+                command = [self.command] + self.format_switches()
+                subprocess.call(" ".join(command),stdout=outfile, stderr=outfile, shell=True)
         except Exception as e:
-            log_error(f"Failed to execute external command {self.command}: {e}")
+            Config.log_error(f"Failed to execute external command {self.module.command}: {e}")
             raise
 
     def _process_analysis(self):
         """Handles analysis of the output after execution."""
-        if callable(self.analyse):
+        func = self.return_callable_func(self.module.analyse_func)    
+        if func:
+            Config.log_info(f"Running analysis for Module: {self.module.name}")
             if not self.output and self.filename.exists():
                 with open(self.filename, 'r') as file:
                     self.output = file.readlines()
-            self.analyse(self.output)
+            func(self.target_info, self.output)        

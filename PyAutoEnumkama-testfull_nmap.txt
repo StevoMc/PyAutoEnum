@@ -1,0 +1,19 @@
+# Nmap 7.95 scan initiated Thu Feb  6 01:30:27 2025 as: nmap -oX - -p 443 -sV -oN C:PyAutoEnumkama-testfull_nmap.txt kama-webservice.de kama-webservice.de
+Nmap scan report for kama-webservice.de (188.40.28.37)
+Host is up (0.021s latency).
+Other addresses for kama-webservice.de (not scanned): 2a01:4f8:d0a:122b::2
+rDNS record for 188.40.28.37: www257.your-server.de
+
+PORT    STATE SERVICE  VERSION
+443/tcp open  ssl/http Apache httpd
+
+Nmap scan report for kama-webservice.de (188.40.28.37)
+Host is up (0.019s latency).
+Other addresses for kama-webservice.de (not scanned): 2a01:4f8:d0a:122b::2
+rDNS record for 188.40.28.37: www257.your-server.de
+
+PORT    STATE SERVICE  VERSION
+443/tcp open  ssl/http Apache httpd
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+# Nmap done at Thu Feb  6 01:31:04 2025 -- 2 IP addresses (2 hosts up) scanned in 37.70 seconds
