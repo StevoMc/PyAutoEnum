@@ -120,7 +120,7 @@ if __name__ == "__main__":
     parser.add_argument('-n', "--newsession", action='store_true', help='New session, do not use saved session data')
     args = parser.parse_args()
 
-    Config.path = Path(args.path) if args.path else Path(args.target)
+    Config.path = Path(args.path) if args.path else Path(get_hostname_from_url(args.target))
     Config.path = Config.path.resolve()
     Config.path.mkdir(parents=True, exist_ok=True)
     Config.load_modules("modules.yml")

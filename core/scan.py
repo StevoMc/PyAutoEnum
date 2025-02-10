@@ -79,7 +79,7 @@ class ScanManager:
                         module=module
                     ).start()
                     
-            time.sleep(10)
+            time.sleep(3)
                     
                                    
 

@@ -1,12 +1,13 @@
-import sys
 from core.smb_utils import *
 import nmap
 import concurrent.futures
 import requests
 import time
-import re
-import socket
 from core.utils import *
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 def custom_modules_tempalte_function(target_info, port, switches):
     pass
@@ -56,9 +57,8 @@ def subdomain_enum_brute(target_info, port, switches):
 
 
 def analyse_subdomain_enum_brute(target_info, output):    
-    if output:
-        port, info = next(iter(output.items()))
-        target_info.add_information(port,"hostnames",info)
+    port, info = next(iter(output.items()))
+    target_info.add_information(port,"hostnames",info)
         
 
 def check_for_http(target_info, port, switches):
@@ -138,6 +138,7 @@ def check_open_ports(target_info, port, switches):
     return scan_res
 
 def analyse_full_nmap(target_info, output):
+    
     target_info.merge(output)
 
 

@@ -30,8 +30,7 @@ class AttackThread(threading.Thread):
         if cmd in globals().keys():
                 func = globals()[cmd]
                 if callable(func): 
-                    return func
-        raise NameError(f"{self.module.name}: Function {cmd} not found")
+                    return func        
 
     def run(self):
         """Runs the attack process in the thread and updates TargetInfo."""
@@ -45,16 +44,18 @@ class AttackThread(threading.Thread):
             func = self.return_callable_func(self.module.command)        
             if func:
                 # Run command (callable function or external command)
-                switches = self.format_switches()
-                Config.log_info(switches)
+                switches = self.format_switches()                
                 self.output = func(Config.target_info, self.port, switches)
                 
                 # only write when some output
                 if self.output:                    
                     # only write result if result file is not created by command switches
                     if not os.path.exists(self.module.output_file):
-                        with open(self.module.output_file, "w") as outfile:
-                            outfile.write(self.output)
+                        with open(self.module.output_file, "w") as outfile:                            
+                            str_ouput = str(self.output)
+                            if isinstance(str_ouput, str):
+                                outfile.write(self.output)
+                            else: raise Exception(f"Output of {self.module.name} not writeable to output file {self.module.output_file}")
             else:
                 self._run_external_command()
 
@@ -82,7 +83,7 @@ class AttackThread(threading.Thread):
         """Runs an external command and captures output to a file."""
         try:
             with open(self.module.output_file, "w") as outfile:
-                command = [self.command] + self.format_switches()
+                command = [self.module.command] + self.format_switches()
                 subprocess.call(" ".join(command),stdout=outfile, stderr=outfile, shell=True)
         except Exception as e:
             Config.log_error(f"Failed to execute external command {self.module.command}: {e}")
@@ -90,10 +91,12 @@ class AttackThread(threading.Thread):
 
     def _process_analysis(self):
         """Handles analysis of the output after execution."""
-        func = self.return_callable_func(self.module.analyse_func)    
-        if func:
+        analyse_func = self.return_callable_func(self.module.analyse_func)    
+        if analyse_func:
             Config.log_info(f"Running analysis for Module: {self.module.name}")
             if not self.output and os.path.exists(self.module.output_file):
                 with open(self.module.output_file, 'r') as file:
                     self.output = file.readlines()
-            func(Config.target_info, self.output)        
+            if self.output:            
+                analyse_func(Config.target_info, self.output)
+            else: Config.log_warning(f"{self.module.name} did not return usable output for {self.module.analyse_func}")        
