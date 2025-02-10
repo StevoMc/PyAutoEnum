@@ -59,7 +59,7 @@ class AttackThread(threading.Thread):
             else:
                 self._run_external_command()
 
-            Config.log_success(f"Finished Module: {self.module.name}")            
+            Config.log_success(f"Finished Module: {self.module.name}")                  
             AttackThread.finished_count += 1
             if self.module.analyse_func:
                 self._process_analysis()

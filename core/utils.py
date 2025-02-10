@@ -67,13 +67,18 @@ def merge_dicts(dict1, dict2):
     return result
 
 
-def check_http_connection(protocol,ip,port,timeout=2):
+def check_http_connection(protocol: str, ip: str, port: int, timeout: int = 2) -> bool:    
     try:
-        response = requests.get(f"{protocol}://{ip}:{port}", timeout=timeout)
-        if response.status_code == 200:
-            return True
-    except requests.RequestException as e:
-        return False
+        url = f"{protocol}://{ip}:{port}"
+        response = requests.get(url, timeout=timeout)
+        print(response.text)
+        print(response.status_code)
+        # Consider any 2xx status code as a successful response
+        return response.ok
+    except (requests.ConnectionError, requests.Timeout, requests.RequestException):
+        pass
+    
+    return False
 
 
 def truncate_value(value, width):
