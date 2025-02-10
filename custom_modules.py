@@ -20,7 +20,7 @@ def subdomain_enum_brute(target_info, port, switches):
     protocol = target_info.get_port(port).protocol
     hostname = target_info.get_host() if len(target_info.get_port(port).hostnames) == 0 else target_info.get_port(port).hostnames[0]
     
-    if is_ip_address(get_hostname_from_url(hostname)):
+    if is_ip_address(hostname):
         return {}
     
     url = f"{protocol}://{hostname}:{port}"
