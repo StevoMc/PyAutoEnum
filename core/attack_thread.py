@@ -54,7 +54,7 @@ class AttackThread(threading.Thread):
                         with open(self.module.output_file, "w") as outfile:                            
                             str_ouput = str(self.output)
                             if isinstance(str_ouput, str):
-                                outfile.write(self.output)
+                                outfile.write(str_ouput)
                             else: raise Exception(f"Output of {self.module.name} not writeable to output file {self.module.output_file}")
             else:
                 self._run_external_command()
