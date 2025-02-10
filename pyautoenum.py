@@ -120,7 +120,20 @@ if __name__ == "__main__":
     parser.add_argument('-n', "--newsession", action='store_true', help='New session, do not use saved session data')
     args = parser.parse_args()
 
-    Config.path = Path(args.path) if args.path else Path(get_hostname_from_url(args.target))
+    target = args.target
+    ip = target if is_ip_address(target) else ""
+    hostname_from_url = get_hostname_from_url(target)
+    if hostname_from_url and get_hostname_from_url != ip:
+        hostname = hostname_from_url
+    else: hostname=""
+
+    if args.path:
+        Config.path = Path(args.path)  
+    elif hostname:
+        Config.path = Path(hostname)
+    else:
+        Config.path = Path(ip)
+        
     Config.path = Config.path.resolve()
     Config.path.mkdir(parents=True, exist_ok=True)
     Config.load_modules("modules.yml")
@@ -135,13 +148,7 @@ if __name__ == "__main__":
         except Exception as e:
             Config.log_error(f"Exception loading session: {e}")
 
-    if Config.target_info is None:
-        target = args.target
-        ip = target if is_ip_address(target) else ""
-        hostname_from_url = get_hostname_from_url(target)
-        if hostname_from_url and get_hostname_from_url != ip:
-            hostname = hostname_from_url
-        else: hostname=""
+    if Config.target_info is None:        
         # Erzeuge eine neue TargetInfo-Instanz, wenn keine Session vorhanden ist
         Config.target_info = TargetInfo(config=Config, ip=ip, hostname=hostname)
         
