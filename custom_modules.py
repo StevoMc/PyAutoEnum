@@ -125,7 +125,7 @@ def check_open_ports(target_info, port, switches):
     for host in nm.all_hosts():
         for p in nm[host].get('tcp', {}):
             port_info = {
-                'service': nm[host]['tcp'][p].get('name', ''),
+                'protocol': nm[host]['tcp'][p].get('name', ''),
                 'version': nm[host]['tcp'][p].get('version', ''),
                 'product': nm[host]['tcp'][p].get('product', ''),
                 'hostnames': '',
