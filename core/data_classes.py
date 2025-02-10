@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 
 class Module:
-    def __init__(self, name, description, command, protocol_list=[], switches=[], analyse_func=None, config=None):
+    def __init__(self, name, description, command, requirements=[], protocol_list=[], switches=[], analyse_func=None, config=None):
         """
         Represents an attack module with execution details.
         
@@ -18,20 +18,28 @@ class Module:
         self.name = name.replace(" ", "_")
         self.description = description
         self.command = command
+        self.requirements = requirements or []
         self.protocol_list = protocol_list
-        self.output_file = Path(config.path) / f"{self.name}.txt" if config else None
-        self.switches = [switch.replace("[outfile]", str(self.output_file)) for switch in switches]        
+        self.output_file = str(Path(config.path) / f"{self.name}.txt") if config else None
+        self.switches = switches
         self.analyse_func = analyse_func
     
+    def needs_port(self):
+        return "port" in self.requirements
     
     def meets_requirements(self, port_data):
-        if not port_data:
-            return False
-        """Checks if the module is applicable to a given port."""
-        return port_data.protocol in self.protocol_list        
+        # check if port is needed for module
+        if "port" in self.requirements:        
+            if not port_data:
+                return False                                                                     
+        
+        # check protocols
+        if self.protocol_list:                
+            if port_data.protocol not in self.protocol_list:
+                return False
+                        
+        return True
     
-    
-
     def __str__(self):
         return f"{self.name} {self.command} {self.switches} {self.analyse_func} {self.output_file}"
 
@@ -79,6 +87,7 @@ class TargetInfo:
         self.config = config
         self.ip = ip
         self.hostname = hostname        
+        self.finished_modules = set()
         self.ports = {int(k): PortData.from_dict(v) for k, v in (ports or {}).items()}
         self.lock = threading.Lock()
 
@@ -99,16 +108,19 @@ class TargetInfo:
                 else:
                     setattr(port_data, column, info)
 
-    def complete_module(self, port, module_name):
+    def mark_module_as_run(self, port, module_name):
         with self.lock:
             if port in self.ports:
                 self.ports[port].modules.append(module_name)
+            
+            if not port:
+                self.finished_modules.add(module_name)
 
     def check_module_finished(self, port, module_name):
         with self.lock:
             return port in self.ports and module_name in self.ports[port].modules
 
-    def get_ports(self):
+    def get_ports_dict_data(self):
         with self.lock:
             return {port: data.to_dict() for port, data in self.ports.items()}
 
@@ -135,6 +147,15 @@ class TargetInfo:
             "hostname": self.hostname,
             "ports": {port: data.to_dict() for port, data in self.ports.items()}
         }
+        
+    @classmethod
+    def from_dict(cls, config, dict):
+        return cls(
+            config=config,
+            ip=dict["ip"],
+            hostname=dict["hostname"],
+            ports= dict["ports"]
+        )
 
     def save_to_file(self):
         with self.lock:

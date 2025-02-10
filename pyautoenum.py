@@ -30,7 +30,7 @@ def exit_handler(sig, frame):
     exit()
 
 def print_data(data_win):
-    data_unordered = Config.target_info.get_ports()
+    data_unordered = Config.target_info.get_ports_dict_data()
     """Prints formatted data in a window."""
     if not data_unordered:
         data_win.addstr("Waiting for data...\n")
@@ -85,7 +85,7 @@ def main(stdscr):
         data_win.clear()
         input_win.clear()
         time.sleep(0.01)
-        data_win.addstr(f"Modules: Running {AttackThread.running_count}, Finished {AttackThread.finished_count}, Errors {AttackThread.error_count}\n\n")
+        data_win.addstr(f"Modules: Running {AttackThread.running_count}, Finished {AttackThread.finished_count}, Errors {AttackThread.error_count}\n\n")        
         print_data(data_win)
         
         if Config.display_data:
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     if not args.newsession and saved_file.exists():
         try:
             with open(saved_file) as file:
-                Config.target_info = TargetInfo.from_dict(json.load(file))
+                Config.target_info = TargetInfo.from_dict(Config,json.load(file))
                 Config.log_success(f"[+] Loaded session for {Config.path}")
         except Exception as e:
             Config.log_error(f"Exception loading session: {e}")

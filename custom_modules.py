@@ -6,6 +6,7 @@ import requests
 import time
 import re
 import socket
+from core.utils import *
 
 def custom_modules_tempalte_function(target_info, port, switches):
     pass
@@ -16,7 +17,8 @@ def custom_modules_tempalte_analyse(target_info, output):
 
 def subdomain_enum_brute(target_info, port, switches):
     protocol = target_info.get_port(port).protocol
-    hostname = target_info.get_host()
+    hostname = target_info.get_host() if len(target_info.get_port(port).hostnames) == 0 else target_info.get_port(port).hostnames[0]
+    #Config.log_info(f"Multiple hostnames for port {port}. Auto chose {hostname}") # TODO
     url = f"{protocol}://{hostname}:{port}"
 
     def get_chars_for_subdomain(subdomain,rec_level=0):
@@ -59,61 +61,61 @@ def analyse_subdomain_enum_brute(target_info, output):
         target_info.add_information(port,"hostnames",info)
         
 
-
-def crawl_web_data(target_info, port, switches):
-    protocol = target_info.get_port(port).protocol
-    hostname = target_info.get_host()
-    url = f"{protocol}://{hostname}:{port}"
-    response = requests.get(url)
-    content = response.text
-#    soup = BeautifulSoup(content, 'html.parser')
-
-    hostname_pattern = re.compile(r'https?://([A-Za-z0-9.-]+)')
-    email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
-    software_version_pattern = re.compile(r'([a-zA-Z\s0-9_-]+)\s*v?\d+\.\d+(\.\d+)?')
-    url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
-    software_versions = list(set(software_version_pattern.findall(content)))
- #   default_page = is_default_page(reponse)
-
-    hostnames = list(set(hostname_pattern.findall(content)))
-    hostnames_checked = []
-    for hostname_test in hostnames:
-        try:
-            if socket.gethostbyname(hostname) == socket.gethostbyname(hostname_test):
-                if hostname_test not in hostnames_checked:
-                    hostnames_checked.append(hostname_test)
-        except socket.gaierror:
-            pass
-
-    return {
-#        'title':soup.title,
-        'hostnames': hostnames_checked,
-        'emails': list(set(email_pattern.findall(content))),
-        'software_versions': [software[0] for software in software_versions],
-        'urls': list(set(url_pattern.findall(content))),
-        'size': len(response.content),
-#        'default_page':default_page,
-        'content':content
-    }
+def check_for_http(target_info, port, switches):
+    if check_http_connection("https", target_info.get_host(), port):
+        target_info.add_information(port, "protocol", "https")
+    elif check_http_connection("http", target_info.get_host(), port):
+        target_info.add_information(port, "protocol", "http")
     
-    
-    
-            # Crawl Web Data
-        # Config.log_info(f"Started Enum: Crawl Web Data [{hostname} {port}]")
-        # try:
-        #     crawled_data = crawl_web_data(protocol, hostname, port)
 
-        #     # Add discovered hostnames
-        #     for new_hostname in crawled_data["hostnames"]:
-        #         if self.target_info.process_new_hostname(new_hostname):
-        #             if check_http_connection("http", new_hostname, port):
-        #                 self.target_info.add_hostname(port, new_hostname, "http")
+# def whatsweb_like_scan(target_info, port, switches):
+#     # Crawl Web Data
+#     hostname = target_info.get_host()
+#     try:
+#         protocol = target_info.get_port(port).protocol        
+#         url = f"{protocol}://{hostname}:{port}"
+#         response = requests.get(url)
+#         content = response.text
+#         soup = BeautifulSoup(content, 'html.parser')
 
-        #     self.target_info.add_information(port, "info", crawled_data)
-        #     Config.log_info(f"Finished Enum: Crawl Web Data [{hostname} {port}]")
+#         hostname_pattern = re.compile(r'https?://([A-Za-z0-9.-]+)')
+#         email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+#         software_version_pattern = re.compile(r'([a-zA-Z\s0-9_-]+)\s*v?\d+\.\d+(\.\d+)?')
+#         url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
+#         software_versions = list(set(software_version_pattern.findall(content)))
+#         default_page = is_default_page(response)
 
-        # except Exception as e:
-        #     Config.log_warning(f"Could not crawl website: {e}")
+#         hostnames = list(set(hostname_pattern.findall(content)))
+#         hostnames_checked = []
+#         for hostname_test in hostnames:
+#             try:
+#                 if socket.gethostbyname(hostname) == socket.gethostbyname(hostname_test):
+#                     if hostname_test not in hostnames_checked:
+#                         hostnames_checked.append(hostname_test)
+#             except socket.gaierror:
+#                 pass
+
+#         crawled_data = {
+#             'title':soup.title if soup else "<No Title Found>",
+#             'hostnames': hostnames_checked,
+#             'emails': list(set(email_pattern.findall(content))),
+#             'software_versions': [software[0] for software in software_versions],
+#             'urls': list(set(url_pattern.findall(content))),
+#             'size': len(response.content),
+#             'default_page':default_page,
+#             'content':content
+#         }
+        
+#         # Add discovered hostnames
+#         for new_hostname in crawled_data["hostnames"]:
+#             if check_http_connection("http", new_hostname, port):
+#                 target_info.add_hostname(port, new_hostname, "http")
+#             if check_http_connection("https", new_hostname, port):
+#                 target_info.add_hostname(port, new_hostname, "https")
+        
+#         target_info.add_information(port, "info", crawled_data)
+#     except Exception as e:
+#         raise Exception(f"Could not crawl website: {e}")
 
 
 def check_open_ports(target_info, port, switches):

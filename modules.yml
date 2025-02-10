@@ -13,7 +13,7 @@
     - "[hostname]"
     - "-p 443"
     - "-sV"
-    - "-oN [outfile]"
+    - "-oN '[outfile]'"
   analyse_function: analyse_full_nmap
 
 - name: subdomain_enum_brute
@@ -24,11 +24,18 @@
   protocols: 
     - http
     - https
+  requires:
+    - port
   analyse_function: analyse_subdomain_enum_brute
 
+- name: check_for_http
+  description: check_for_http verifies if a port is a http server
+  command: check_for_http
+  requires:
+    - port
+  
 
 # ------------- external modules
-
 
 - name: Nikto
   description: Scan for web vulnerabilities using Nikto
@@ -39,7 +46,33 @@
   switches:
     - "--url"
     - "[protocol]://[hostname]:[port]"
+  requires:
+    - port
   analyse_function: analyse_nikto
+
+- name: Hakrawler
+  description: Spider site for links
+  protocols: 
+    - http
+    - https
+  command: /usr/bin/echo
+  switches:    
+    - "'[protocol]://[hostname]:[port]'"
+    - "| /usr/bin/hakrawler"
+    - "-u -subs"
+  requires:
+    - port
+  
+- name: WhatWeb
+  description: WhatWeb
+  protocols: 
+    - http
+    - https
+  command: /usr/bin/whatweb
+  switches:    
+    - "'[protocol]://[hostname]:[port]'"
+  requires:
+    - port
 
 - name: Feroxbuster
   description: Scan for web directories using Feroxbuster
@@ -48,16 +81,14 @@
       - https
   command: /usr/bin/feroxbuster
   switches:
-    - "-u"
-    - "[protocol]://[hostname]:[port]/"
-    - "-A"
-    - "-E"
+    - "-u [protocol]://[hostname]:[port]/"
+    - "-A -E"
     - "--no-state"
-    - "--smart"
-    - "--threads"
-    - "150"
-    - "-C"
-    - "404"
-    - "-w"
-    - "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+    - "--thorough"
+    - "--burp-replay -R 200,301,403"
+    - "--threads 150"
+    - "-C 404"
+    - "-w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+  requires:
+    - port   
   analyse_function: analyse_feroxbuster

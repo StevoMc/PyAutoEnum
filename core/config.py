@@ -70,10 +70,14 @@ class Config:
 
     @classmethod
     def load_modules(cls, config_file):
-        # Load file
-        with open(config_file, "r", encoding="utf-8") as file:
-            modules_data = yaml.safe_load(file)
-
+        
+        try:
+            # Load file
+            with open(config_file, "r", encoding="utf-8") as file:
+                modules_data = yaml.safe_load(file)
+        except:
+            raise Exception("module.yml contains error")
+        
         checked_modules = []
         failed_modules = []
 
@@ -84,13 +88,18 @@ class Config:
             description = module_data.get("description","")
             command = module_data.get("command","")
             switches = module_data.get("switches", [])
-            analyse_func = module_data.get("analyse_function", None)
+            analyse_func = module_data.get("analyse_function", "")
+            
             protocols = module_data.get("protocols", [])
-
+            protocols = [p.lower() for p in protocols]
+            
+            requirements = module_data.get("requires", [])
+            requirements = [r.lower() for r in requirements]
+            
             # Check if the command is valid
             if Config.check_command_installed(command):
                 # Instantiate the Module
-                module = Module(name, description, command, protocol_list=protocols, switches=switches, analyse_func=analyse_func, config=cls)                                
+                module = Module(name, description, command, requirements=requirements, protocol_list=protocols, switches=switches, analyse_func=analyse_func, config=cls)                                
                 checked_modules.append(module)
             else:
                 failed_modules.append(name)
