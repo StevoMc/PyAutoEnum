@@ -19,7 +19,10 @@ def custom_modules_tempalte_analyse(target_info, output):
 def subdomain_enum_brute(target_info, port, switches):
     protocol = target_info.get_port(port).protocol
     hostname = target_info.get_host() if len(target_info.get_port(port).hostnames) == 0 else target_info.get_port(port).hostnames[0]
-    #Config.log_info(f"Multiple hostnames for port {port}. Auto chose {hostname}") # TODO
+    
+    if is_ip_address(get_hostname_from_url(hostname)):
+        return {}
+    
     url = f"{protocol}://{hostname}:{port}"
 
     def get_chars_for_subdomain(subdomain,rec_level=0):
