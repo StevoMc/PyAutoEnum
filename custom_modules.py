@@ -31,8 +31,7 @@ def subdomain_enum_brute(target_info, port, switches):
             if rec_level<=3:
                 rec_level+=1
                 return get_chars_for_subdomain(subdomain,rec_level)
-            else:
-                print(f"{rec_level} times connection error {subdomain}")
+            else:                
                 return 0
         
     if len(switches) > 0:

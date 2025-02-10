@@ -67,12 +67,10 @@ def merge_dicts(dict1, dict2):
     return result
 
 
-def check_http_connection(protocol: str, ip: str, port: int, timeout: int = 2) -> bool:    
+def check_http_connection(protocol: str, ip: str, port: int, timeout: int = 5) -> bool:    
     try:
         url = f"{protocol}://{ip}:{port}"
         response = requests.get(url, timeout=timeout)
-        print(response.text)
-        print(response.status_code)
         # Consider any 2xx status code as a successful response
         return response.ok
     except (requests.ConnectionError, requests.Timeout, requests.RequestException):

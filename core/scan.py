@@ -28,12 +28,11 @@ class ScanManager:
             Config.log_success("Target is up")
 
         # If no open ports exist yet, perform an NMAP scan
-        if not Config.target_info.ports:
-            nmap_ports = "-p 443" # TODO testing       
-            nmap_args =   ["-Pn", nmap_ports, "-T4"]
+        if not Config.target_info.ports:            
+            nmap_args =   ["-Pn", "-F", "-T4"]
             Config.log_info(f"Started Fast NMAP Scan (nmap {target} {nmap_args})")
             nmap_results = check_open_ports(Config.target_info, None, nmap_args)           
-            if nmap_ports:
+            if nmap_results:
                 Config.target_info.merge(nmap_results)
 
         # SMB Enumeration if port 445 is open
