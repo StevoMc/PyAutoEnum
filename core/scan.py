@@ -49,8 +49,7 @@ class ScanManager:
 
         # check if modules requirements are met and start modules
         
-        while True:
-            Config.log_info("Checking if modules can be executed...")        
+        while True:            
             for module in Config.modules:
                 # check for modules which need a port
                 if module.needs_port():                                  
