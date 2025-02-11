@@ -28,6 +28,15 @@
     - port
   analyse_function: analyse_subdomain_enum_brute
 
+- name: custom_created_wordlist
+  description: create_wordlist_from_website Scan
+  command: create_wordlist_from_website
+  protocols: 
+    - http
+    - https
+  requires:
+    - port
+
 - name: check_for_http
   description: check_for_http verifies if a port is a http server
   command: check_for_http
@@ -60,6 +69,7 @@
     - "'[protocol]://[hostname]:[port]'"
     - "| /usr/bin/hakrawler"
     - "-u -subs"
+    - "-proxy http://127.0.0.1:8080"
   requires:
     - port
   

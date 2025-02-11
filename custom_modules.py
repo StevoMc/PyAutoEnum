@@ -5,6 +5,7 @@ import requests
 import time
 from core.utils import *
 import urllib3
+from urllib.parse import urljoin, urlparse
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -58,9 +59,10 @@ def subdomain_enum_brute(target_info, port, switches):
     return {str(port):found_subdomains}
 
 
-def analyse_subdomain_enum_brute(target_info, output):    
-    port, info = next(iter(output.items()))
-    target_info.add_information(port,"hostnames",info)
+def analyse_subdomain_enum_brute(target_info, output):   
+    if output: 
+        port, info = next(iter(output.items()))
+        target_info.add_information(port,"hostnames",info)
         
 
 def check_for_http(target_info, port, switches):
@@ -144,6 +146,49 @@ def analyse_full_nmap(target_info, output):
     target_info.merge(output)
 
 
+def create_wordlist_from_website(target_info, port, switches):
+    try:
+        protocol = target_info.get_port(port).protocol
+        hostname = target_info.get_host() if len(target_info.get_port(port).hostnames) == 0 else target_info.get_port(port).hostnames[0]
+        url = f"{protocol}://{hostname}:{port}"
+        
+        domain = urlparse(url).netloc
+        urls_to_scrape, scraped_urls, all_words = {url}, set(), set()
+
+        while urls_to_scrape:
+            current_url = urls_to_scrape.pop()
+            if current_url in scraped_urls:
+                continue
+
+            try:
+                response = requests.get(current_url)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # Extract words
+                all_words.update(re.findall(r'\b[a-zA-Z0-9]{5,}\b', soup.get_text()))
+
+                # Extract and filter links
+                urls_to_scrape.update(
+                    link for link in {urljoin(current_url, a['href']) for a in soup.find_all('a', href=True)}
+                    if urlparse(link).netloc == domain and link not in scraped_urls
+                )
+
+                scraped_urls.add(current_url)
+            except requests.exceptions.RequestException as e:
+                pass
+
+        # Generate variants
+        variants = set()
+        for word in all_words:
+            for num in ['', '0', '1', '123', '2024', '2025']:
+                for char in ['', '!', '?']:
+                    variants.update({word + num + char, word + char})
+        
+        return sorted(variants, key=len)
+
+    except Exception as e:
+        pass
 
 # def enum_smb(ip, username="", password=""):
 #     conn = SMBConnection(username, password, "", str(ip))
