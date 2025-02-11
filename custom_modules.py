@@ -185,7 +185,7 @@ def create_wordlist_from_website(target_info, port, switches):
                 for char in ['', '!', '?']:
                     variants.update({word + num + char, word + char})
         
-        return sorted(variants, key=len)
+        return '\n'.join(sorted(variants, key=len))
 
     except Exception as e:
         pass
