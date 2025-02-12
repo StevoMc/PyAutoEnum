@@ -94,9 +94,16 @@ class AttackThread(threading.Thread):
         analyse_func = self.return_callable_func(self.module.analyse_func)    
         if analyse_func:
             Config.log_info(f"Running analysis for Module: {self.module.name}")
-            if not self.output and os.path.exists(self.module.output_file):
-                with open(self.module.output_file, 'r') as file:
-                    self.output = file.readlines()
             if self.output:            
                 analyse_func(Config.target_info, self.output)
+            elif os.path.exists(self.module.output_file):
+                with open(self.module.output_file, 'r') as file:
+                    lines = file.readlines()
+                    try: # TODO unchecked code
+                        loaded_dict = json.loads(str(lines))
+                        self.output = loaded_dict
+                    except:
+                        pass
+                    self.output = lines
+                    analyse_func(Config.target_info, self.output)
             else: Config.log_warning(f"{self.module.name} did not return usable output for {self.module.analyse_func}")        

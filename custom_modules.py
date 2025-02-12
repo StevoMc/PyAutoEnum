@@ -142,7 +142,6 @@ def check_open_ports(target_info, port, switches):
     return scan_res
 
 def analyse_full_nmap(target_info, output):
-    
     target_info.merge(output)
 
 

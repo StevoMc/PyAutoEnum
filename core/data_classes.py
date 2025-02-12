@@ -135,11 +135,12 @@ class TargetInfo:
 
     def merge(self, other_ports):
         with self.lock:
-            for port, data in other_ports.items():
-                if port not in self.ports:
-                    self.ports[port] = PortData.from_dict(data)
-                else:
-                    self.ports[port].update(data)
+            if other_ports:
+                for port, data in other_ports.items():
+                    if port not in self.ports:
+                        self.ports[port] = PortData.from_dict(data)
+                    else:
+                        self.ports[port].update(data)
 
     def to_dict(self):
         return {
