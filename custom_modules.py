@@ -181,9 +181,10 @@ def create_wordlist_from_website(target_info, port, switches):
         # Generate variants
         variants = set()
         for word in all_words:
-            for num in ['', '0', '1', '123', '2024', '2025']:
-                for char in ['', '!', '?']:
-                    variants.update({word + num + char, word + char})
+            for word_variant in [word, word.capitalize()]:
+                for num in ['', '0', '1', '123', '2024', '2025']:
+                    for char in ['', '!', '?']:
+                        variants.update({word_variant + num + char, word_variant + char})                    
         
         return '\n'.join(sorted(variants, key=len))
 
@@ -207,5 +208,5 @@ def create_wordlist_from_website(target_info, port, switches):
 #         Config.log_success(f"Found smb users: {','.join(users)} groups: {','.join(groups)}")
 #     else: Config.log_info("No smb users or groups found")
 
-def analyse_smb_enum_anon(target_info, output):
-    pass
+# def analyse_smb_enum_anon(target_info, output):
+#     pass

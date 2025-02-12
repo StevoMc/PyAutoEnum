@@ -69,7 +69,6 @@
     - "'[protocol]://[hostname]:[port]'"
     - "| /usr/bin/hakrawler"
     - "-u -subs"
-    - "-proxy http://127.0.0.1:8080"
   requires:
     - port
   
@@ -84,21 +83,50 @@
   requires:
     - port
 
-- name: Feroxbuster
-  description: Scan for web directories using Feroxbuster
+# - name: Feroxbuster
+#   description: Scan for web directories using Feroxbuster
+#   protocols: 
+#       - http
+#       - https
+#   command: /usr/bin/feroxbuster
+#   switches:
+#     - "-u [protocol]://[hostname]:[port]/"
+#     - "-A -E"
+#     - "--no-state"
+#     - "--thorough"
+#     - "--burp-replay -R 200,301,403"
+#     - "--threads 150"
+#     - "-C 404"
+#     - "-w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+#   requires:
+#     - port   
+#   analyse_function: analyse_feroxbuster
+
+
+- name: wfuzz_web_files
+  description: Scan for web files using wfuzz
   protocols: 
       - http
       - https
-  command: /usr/bin/feroxbuster
+  command: /usr/bin/wfuzz
   switches:
-    - "-u [protocol]://[hostname]:[port]/"
-    - "-A -E"
-    - "--no-state"
-    - "--thorough"
-    - "--burp-replay -R 200,301,403"
-    - "--threads 150"
-    - "-C 404"
-    - "-w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+    - "-c"
+    - "-z file,/usr/share/seclists/Discovery/Web-Content/raft-medium-files.txt"
+    - "--hc 404"
+    - "[protocol]://[hostname]:[port]/FUZZ"
   requires:
-    - port   
-  analyse_function: analyse_feroxbuster
+    - port
+
+- name: wfuzz_web_dirs
+  description: Scan for web directories using wfuzz
+  protocols: 
+      - http
+      - https
+  command: /usr/bin/wfuzz
+  switches:
+    - "-c"
+    - "-z file,/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt"
+    - "--hc 404"
+    - "[protocol]://[hostname]:[port]/FUZZ/"
+  requires:
+    - port
