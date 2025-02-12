@@ -10,8 +10,10 @@
   description: Nmap Version Scan
   command: check_open_ports
   switches:
+    - "-Pn"
     - "-p-"
     - "-sV"
+    - "-oN '[outfile]'"
   analyse_function: analyse_full_nmap
 
 - name: subdomain_enum_brute
