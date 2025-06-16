@@ -1,7 +1,6 @@
-
-__pycache__/*
+.vscode/
+.venv/
+__pycache__/
 smb_files/
 logs.txt
 error.log
-10.10*
-core/__pycache__/*

@@ -1,11 +1,13 @@
-from core.smb_utils import *
-import nmap
 import concurrent.futures
-import requests
 import time
-from core.utils import *
-import urllib3
 from urllib.parse import urljoin, urlparse
+
+import nmap
+import requests
+import urllib3
+
+from core.smb_utils import *
+from core.utils import *
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -13,70 +15,90 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 def custom_modules_tempalte_function(target_info, port, switches):
     pass
 
-def custom_modules_tempalte_analyse(target_info, output): 
+
+def custom_modules_tempalte_analyse(target_info, output):
     pass
 
 
 def subdomain_enum_brute(target_info, port, switches):
     protocol = target_info.get_port(port).protocol
-    hostname = target_info.get_host() if len(target_info.get_port(port).hostnames) == 0 else target_info.get_port(port).hostnames[0]
-    
+    hostname = (
+        target_info.get_host()
+        if len(target_info.get_port(port).hostnames) == 0
+        else target_info.get_port(port).hostnames[0]
+    )
+
     if is_ip_address(hostname):
         return {}
-    
+
     url = f"{protocol}://{hostname}:{port}"
 
-    def get_chars_for_subdomain(subdomain,rec_level=0):
+    def get_chars_for_subdomain(subdomain, rec_level=0):
         try:
-            return len(requests.get(url, headers={"Host":f"{subdomain.strip()}.{hostname}"},timeout=2+rec_level, verify=False, allow_redirects=False).text)
+            return len(
+                requests.get(
+                    url,
+                    headers={"Host": f"{subdomain.strip()}.{hostname}"},
+                    timeout=2 + rec_level,
+                    verify=False,
+                    allow_redirects=False,
+                ).text
+            )
         except:
             if rec_level:
                 time.sleep(rec_level)
-            if rec_level<=3:
-                rec_level+=1
-                return get_chars_for_subdomain(subdomain,rec_level)
-            else:                
+            if rec_level <= 3:
+                rec_level += 1
+                return get_chars_for_subdomain(subdomain, rec_level)
+            else:
                 return 0
-        
+
     if len(switches) > 0:
         wordlist = switches[0]
-    else: 
-        raise ValueError(f"1 argument needed {len(switches)} given to subdomain_enum_brute")
-    
+    else:
+        raise ValueError(
+            f"1 argument needed {len(switches)} given to subdomain_enum_brute"
+        )
+
     if os.path.exists(wordlist):
         with open(wordlist) as list:
             subs = list.readlines()
-    else: raise FileNotFoundError(f"File {wordlist} not found")
-    
+    else:
+        raise FileNotFoundError(f"File {wordlist} not found")
+
     response_www_value = get_chars_for_subdomain("www")
     found_subdomains = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=200) as executor:
-        futures = {executor.submit(get_chars_for_subdomain,subdomain.strip()): subdomain for subdomain in subs if subdomain[0] != "#"}
+        futures = {
+            executor.submit(get_chars_for_subdomain, subdomain.strip()): subdomain
+            for subdomain in subs
+            if subdomain[0] != "#"
+        }
         for future in concurrent.futures.as_completed(futures):
             sub = futures[future]
             if future.result() != response_www_value:
-                found_subdomains.append([f"{sub.strip()}.{hostname}",protocol])
-    return {str(port):found_subdomains}
+                found_subdomains.append([f"{sub.strip()}.{hostname}", protocol])
+    return {str(port): found_subdomains}
 
 
-def analyse_subdomain_enum_brute(target_info, output):   
-    if output: 
+def analyse_subdomain_enum_brute(target_info, output):
+    if output:
         port, info = next(iter(output.items()))
-        target_info.add_information(port,"hostnames",info)
-        
+        target_info.add_information(port, "hostnames", info)
+
 
 def check_for_http(target_info, port, switches):
     if check_http_connection("https", target_info.get_host(), port):
         target_info.add_information(port, "protocol", "https")
     elif check_http_connection("http", target_info.get_host(), port):
         target_info.add_information(port, "protocol", "http")
-    
+
 
 # def whatsweb_like_scan(target_info, port, switches):
 #     # Crawl Web Data
 #     hostname = target_info.get_host()
 #     try:
-#         protocol = target_info.get_port(port).protocol        
+#         protocol = target_info.get_port(port).protocol
 #         url = f"{protocol}://{hostname}:{port}"
 #         response = requests.get(url)
 #         content = response.text
@@ -109,37 +131,38 @@ def check_for_http(target_info, port, switches):
 #             'default_page':default_page,
 #             'content':content
 #         }
-        
+
 #         # Add discovered hostnames
 #         for new_hostname in crawled_data["hostnames"]:
 #             if check_http_connection("http", new_hostname, port):
 #                 target_info.add_hostname(port, new_hostname, "http")
 #             if check_http_connection("https", new_hostname, port):
 #                 target_info.add_hostname(port, new_hostname, "https")
-        
+
 #         target_info.add_information(port, "info", crawled_data)
 #     except Exception as e:
 #         raise Exception(f"Could not crawl website: {e}")
 
 
 def check_open_ports(target_info, port, switches):
-    nm = nmap.PortScanner()    
+    nm = nmap.PortScanner()
     nm.scan(target_info.get_host(), arguments=" ".join(switches))
-    
+
     scan_res = {}
     for host in nm.all_hosts():
-        for p in nm[host].get('tcp', {}):
+        for p in nm[host].get("tcp", {}):
             port_info = {
-                'protocol': nm[host]['tcp'][p].get('name', ''),
-                'version': nm[host]['tcp'][p].get('version', ''),
-                'product': nm[host]['tcp'][p].get('product', ''),
-                'hostnames': '',
-                'modules': [],
-                'info': {}
+                "protocol": nm[host]["tcp"][p].get("name", ""),
+                "version": nm[host]["tcp"][p].get("version", ""),
+                "product": nm[host]["tcp"][p].get("product", ""),
+                "hostnames": "",
+                "modules": [],
+                "info": {},
             }
             scan_res[str(p)] = port_info
-        
+
     return scan_res
+
 
 def analyse_full_nmap(target_info, output):
     target_info.merge(output)
@@ -148,9 +171,13 @@ def analyse_full_nmap(target_info, output):
 def create_wordlist_from_website(target_info, port, switches):
     try:
         protocol = target_info.get_port(port).protocol
-        hostname = target_info.get_host() if len(target_info.get_port(port).hostnames) == 0 else target_info.get_port(port).hostnames[0]
+        hostname = (
+            target_info.get_host()
+            if len(target_info.get_port(port).hostnames) == 0
+            else target_info.get_port(port).hostnames[0]
+        )
         url = f"{protocol}://{hostname}:{port}"
-        
+
         domain = urlparse(url).netloc
         urls_to_scrape, scraped_urls, all_words = {url}, set(), set()
 
@@ -162,14 +189,18 @@ def create_wordlist_from_website(target_info, port, switches):
             try:
                 response = requests.get(current_url)
                 response.raise_for_status()
-                soup = BeautifulSoup(response.text, 'html.parser')
+                soup = BeautifulSoup(response.text, "html.parser")
 
                 # Extract words
-                all_words.update(re.findall(r'\b[a-zA-Z0-9]{5,}\b', soup.get_text()))
+                all_words.update(re.findall(r"\b[a-zA-Z0-9]{5,}\b", soup.get_text()))
 
                 # Extract and filter links
                 urls_to_scrape.update(
-                    link for link in {urljoin(current_url, a['href']) for a in soup.find_all('a', href=True)}
+                    link
+                    for link in {
+                        urljoin(current_url, a["href"])
+                        for a in soup.find_all("a", href=True)
+                    }
                     if urlparse(link).netloc == domain and link not in scraped_urls
                 )
 
@@ -181,14 +212,17 @@ def create_wordlist_from_website(target_info, port, switches):
         variants = set()
         for word in all_words:
             for word_variant in [word, word.capitalize()]:
-                for num in ['', '0', '1', '123', '2024', '2025']:
-                    for char in ['', '!', '?']:
-                        variants.update({word_variant + num + char, word_variant + char})                    
-        
-        return '\n'.join(sorted(variants, key=len))
+                for num in ["", "0", "1", "123", "2024", "2025"]:
+                    for char in ["", "!", "?"]:
+                        variants.update(
+                            {word_variant + num + char, word_variant + char}
+                        )
+
+        return "\n".join(sorted(variants, key=len))
 
     except Exception as e:
         pass
+
 
 # def enum_smb(ip, username="", password=""):
 #     conn = SMBConnection(username, password, "", str(ip))

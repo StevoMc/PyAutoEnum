@@ -1,4 +1,4 @@
-# reserved placeholders 
+# reserved placeholders
 # - [outfile]
 # - [protocol]
 # - [hostname]
@@ -19,9 +19,9 @@
 - name: subdomain_enum_brute
   description: subdomain Scan
   command: subdomain_enum_brute
-  switches:    
+  switches:
     - "/usr/share/seclists/Discovery/DNS/subdomains-top1million-20000.txt"
-  protocols: 
+  protocols:
     - http
     - https
   requires:
@@ -31,7 +31,7 @@
 - name: custom_created_wordlist
   description: create_wordlist_from_website Scan
   command: create_wordlist_from_website
-  protocols: 
+  protocols:
     - http
     - https
   requires:
@@ -42,13 +42,12 @@
   command: check_for_http
   requires:
     - port
-  
 
 # ------------- external modules
 
 - name: Nikto
   description: Scan for web vulnerabilities using Nikto
-  protocols: 
+  protocols:
     - http
     - https
   command: /usr/bin/nikto
@@ -61,31 +60,31 @@
 
 - name: Hakrawler
   description: Spider site for links
-  protocols: 
+  protocols:
     - http
     - https
   command: /usr/bin/echo
-  switches:    
+  switches:
     - "'[protocol]://[hostname]:[port]'"
     - "| /usr/bin/hakrawler"
     - "-u -subs"
   requires:
     - port
-  
+
 - name: WhatWeb
   description: WhatWeb
-  protocols: 
+  protocols:
     - http
     - https
   command: /usr/bin/whatweb
-  switches:    
+  switches:
     - "'[protocol]://[hostname]:[port]'"
   requires:
     - port
 
 # - name: Feroxbuster
 #   description: Scan for web directories using Feroxbuster
-#   protocols: 
+#   protocols:
 #       - http
 #       - https
 #   command: /usr/bin/feroxbuster
@@ -99,15 +98,14 @@
 #     - "-C 404"
 #     - "-w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
 #   requires:
-#     - port   
+#     - port
 #   analyse_function: analyse_feroxbuster
-
 
 - name: wfuzz_web_files
   description: Scan for web files using wfuzz
-  protocols: 
-      - http
-      - https
+  protocols:
+    - http
+    - https
   command: /usr/bin/wfuzz
   switches:
     - "-c"
@@ -119,9 +117,9 @@
 
 - name: wfuzz_web_dirs
   description: Scan for web directories using wfuzz
-  protocols: 
-      - http
-      - https
+  protocols:
+    - http
+    - https
   command: /usr/bin/wfuzz
   switches:
     - "-c"

@@ -1,10 +1,12 @@
 import threading
 import traceback
-from core.utils import *
-from core.config import Config
+
 from core.attack_thread import AttackThread
+from core.config import Config
 from core.data_classes import *
+from core.utils import *
 from custom_modules import *
+
 
 class ScanManager:
     """
@@ -18,7 +20,7 @@ class ScanManager:
         target = Config.target_info.get_host()
         if not target:
             Config.log_error("No valid target specified")
-            
+
         Config.log_info(f"Starting Enum for {target}:")
 
         # check if target can be pinged
@@ -28,10 +30,10 @@ class ScanManager:
             Config.log_success("Target is up")
 
         # If no open ports exist yet, perform an NMAP scan
-        if not Config.target_info.ports:            
-            nmap_args =   ["-Pn", "-F", "-T4"]
+        if not Config.target_info.ports:
+            nmap_args = ["-Pn", "-F", "-T4"]
             Config.log_info(f"Started Fast NMAP Scan (nmap {target} {nmap_args})")
-            nmap_results = check_open_ports(Config.target_info, None, nmap_args)           
+            nmap_results = check_open_ports(Config.target_info, None, nmap_args)
             if nmap_results:
                 Config.target_info.merge(nmap_results)
 
@@ -48,42 +50,31 @@ class ScanManager:
         #         ).start()
 
         # check if modules requirements are met and start modules
-        
-        while True:            
+
+        while True:
             for module in Config.modules:
                 # check for modules which need a port
-                if module.needs_port():                                  
-                    for port, port_data in Config.target_info.ports.items():                            
+                if module.needs_port():
+                    for port, port_data in Config.target_info.ports.items():
                         # check if modules already executed for port
                         if module.name in port_data.modules:
-                            continue       
+                            continue
                         # check if port meets module requirements
-                        if port_data:    
+                        if port_data:
                             if module.meets_requirements(port_data):
                                 """ start module """
-                                AttackThread(                                    
-                                    module=module,
-                                    port=port
-                                ).start()   
-                
+                                AttackThread(module=module, port=port).start()
+
                 # check for modules which execute with host
-                else:                    
+                else:
                     # check if already run
                     if module.name in Config.target_info.finished_modules:
-                        continue       
-                    
+                        continue
+
                     """ start module """
-                    AttackThread(                        
-                        module=module
-                    ).start()
-                    
+                    AttackThread(module=module).start()
+
             time.sleep(3)
-                    
-                                   
-
-
-
-            
 
 
 class ScanThread(threading.Thread):

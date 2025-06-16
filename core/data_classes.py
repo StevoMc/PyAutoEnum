@@ -2,11 +2,22 @@ import json
 import threading
 from pathlib import Path
 
+
 class Module:
-    def __init__(self, name, description, command, requirements=[], protocol_list=[], switches=[], analyse_func=None, config=None):
+    def __init__(
+        self,
+        name,
+        description,
+        command,
+        requirements=[],
+        protocol_list=[],
+        switches=[],
+        analyse_func=None,
+        config=None,
+    ):
         """
         Represents an attack module with execution details.
-        
+
         :param name: Name of the module.
         :param description: Description of the module.
         :param command: The command function or external command string.
@@ -20,31 +31,42 @@ class Module:
         self.command = command
         self.requirements = requirements or []
         self.protocol_list = protocol_list
-        self.output_file = str(Path(config.path) / f"{self.name}.txt") if config else None
+        self.output_file = (
+            str(Path(config.path) / f"{self.name}.txt") if config else None
+        )
         self.switches = switches
         self.analyse_func = analyse_func
-    
+
     def needs_port(self):
         return "port" in self.requirements
-    
+
     def meets_requirements(self, port_data):
         # check if port is needed for module
-        if "port" in self.requirements:        
+        if "port" in self.requirements:
             if not port_data:
-                return False                                                                     
-        
+                return False
+
         # check protocols
-        if self.protocol_list:                
+        if self.protocol_list:
             if port_data.protocol not in self.protocol_list:
                 return False
-                        
+
         return True
-    
+
     def __str__(self):
         return f"{self.name} {self.command} {self.switches} {self.analyse_func} {self.output_file}"
 
+
 class PortData:
-    def __init__(self, protocol="", version="", product="", hostnames=None, modules=None, infos=None):
+    def __init__(
+        self,
+        protocol="",
+        version="",
+        product="",
+        hostnames=None,
+        modules=None,
+        infos=None,
+    ):
         self.protocol = protocol
         self.version = version
         self.product = product
@@ -57,7 +79,9 @@ class PortData:
         self.protocol = self.protocol or data.get("protocol", "")
         self.version = self.version or data.get("version", "")
         self.product = self.product or data.get("product", "")
-        self.hostnames.extend(h for h in data.get("hostnames", []) if h not in self.hostnames)
+        self.hostnames.extend(
+            h for h in data.get("hostnames", []) if h not in self.hostnames
+        )
         self.modules.extend(m for m in data.get("modules", []) if m not in self.modules)
         self.infos.update(data.get("infos", {}))
 
@@ -68,7 +92,7 @@ class PortData:
             "product": self.product,
             "hostnames": self.hostnames,
             "modules": self.modules,
-            "infos": self.infos
+            "infos": self.infos,
         }
 
     @classmethod
@@ -79,21 +103,25 @@ class PortData:
             product=data.get("product", ""),
             hostnames=data.get("hostnames", []),
             modules=data.get("modules", []),
-            infos=data.get("infos", {})
+            infos=data.get("infos", {}),
         )
+
 
 class TargetInfo:
     def __init__(self, config, ip, hostname="", ports=None):
         self.config = config
         self.ip = ip
-        self.hostname = hostname        
+        self.hostname = hostname
         self.finished_modules = set()
         self.ports = {int(k): PortData.from_dict(v) for k, v in (ports or {}).items()}
         self.lock = threading.Lock()
 
     def add_hostname(self, port, hostname, protocol):
         with self.lock:
-            if port in self.ports and (hostname, protocol) not in self.ports[port].hostnames:
+            if (
+                port in self.ports
+                and (hostname, protocol) not in self.ports[port].hostnames
+            ):
                 self.ports[port].hostnames.append((hostname, protocol))
 
     def add_information(self, port, column, info):
@@ -112,7 +140,7 @@ class TargetInfo:
         with self.lock:
             if port in self.ports:
                 self.ports[port].modules.append(module_name)
-            
+
             if not port:
                 self.finished_modules.add(module_name)
 
@@ -128,8 +156,9 @@ class TargetInfo:
         with self.lock:
             if port in self.ports:
                 return self.ports[port]
-            else: return None
-            
+            else:
+                return None
+
     def get_host(self):
         return self.hostname if self.hostname else self.ip
 
@@ -146,16 +175,13 @@ class TargetInfo:
         return {
             "ip": self.ip,
             "hostname": self.hostname,
-            "ports": {port: data.to_dict() for port, data in self.ports.items()}
+            "ports": {port: data.to_dict() for port, data in self.ports.items()},
         }
-        
+
     @classmethod
     def from_dict(cls, config, dict):
         return cls(
-            config=config,
-            ip=dict["ip"],
-            hostname=dict["hostname"],
-            ports= dict["ports"]
+            config=config, ip=dict["ip"], hostname=dict["hostname"], ports=dict["ports"]
         )
 
     def save_to_file(self):
