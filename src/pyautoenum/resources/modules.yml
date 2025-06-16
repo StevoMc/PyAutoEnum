@@ -1,0 +1,130 @@
+# reserved placeholders
+# - [outfile]
+# - [protocol]
+# - [hostname]
+# - [port]
+
+# ------------- custom python modules
+
+- name: full_nmap
+  description: Nmap Version Scan
+  command: check_open_ports
+  switches:
+    - "-Pn"
+    - "-p-"
+    - "-sV"
+    - "-oN '[outfile]'"
+  analyse_function: analyse_full_nmap
+
+- name: subdomain_enum_brute
+  description: subdomain Scan
+  command: subdomain_enum_brute
+  switches:
+    - "/usr/share/seclists/Discovery/DNS/subdomains-top1million-20000.txt"
+  protocols:
+    - http
+    - https
+  requires:
+    - port
+  analyse_function: analyse_subdomain_enum_brute
+
+- name: custom_created_wordlist
+  description: create_wordlist_from_website Scan
+  command: create_wordlist_from_website
+  protocols:
+    - http
+    - https
+  requires:
+    - port
+
+- name: check_for_http
+  description: check_for_http verifies if a port is a http server
+  command: check_for_http
+  requires:
+    - port
+
+# ------------- external modules
+
+- name: Nikto
+  description: Scan for web vulnerabilities using Nikto
+  protocols:
+    - http
+    - https
+  command: /usr/bin/nikto
+  switches:
+    - "--url"
+    - "[protocol]://[hostname]:[port]"
+  requires:
+    - port
+  analyse_function: analyse_nikto
+
+- name: Hakrawler
+  description: Spider site for links
+  protocols:
+    - http
+    - https
+  command: /usr/bin/echo
+  switches:
+    - "'[protocol]://[hostname]:[port]'"
+    - "| /usr/bin/hakrawler"
+    - "-u -subs"
+  requires:
+    - port
+
+- name: WhatWeb
+  description: WhatWeb
+  protocols:
+    - http
+    - https
+  command: /usr/bin/whatweb
+  switches:
+    - "'[protocol]://[hostname]:[port]'"
+  requires:
+    - port
+
+# - name: Feroxbuster
+#   description: Scan for web directories using Feroxbuster
+#   protocols:
+#       - http
+#       - https
+#   command: /usr/bin/feroxbuster
+#   switches:
+#     - "-u [protocol]://[hostname]:[port]/"
+#     - "-A -E"
+#     - "--no-state"
+#     - "--thorough"
+#     - "--burp-replay -R 200,301,403"
+#     - "--threads 150"
+#     - "-C 404"
+#     - "-w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+#   requires:
+#     - port
+#   analyse_function: analyse_feroxbuster
+
+- name: wfuzz_web_files
+  description: Scan for web files using wfuzz
+  protocols:
+    - http
+    - https
+  command: /usr/bin/wfuzz
+  switches:
+    - "-c"
+    - "-z file,/usr/share/seclists/Discovery/Web-Content/raft-medium-files.txt"
+    - "--hc 404"
+    - "[protocol]://[hostname]:[port]/FUZZ"
+  requires:
+    - port
+
+- name: wfuzz_web_dirs
+  description: Scan for web directories using wfuzz
+  protocols:
+    - http
+    - https
+  command: /usr/bin/wfuzz
+  switches:
+    - "-c"
+    - "-z file,/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt"
+    - "--hc 404"
+    - "[protocol]://[hostname]:[port]/FUZZ/"
+  requires:
+    - port
