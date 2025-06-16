@@ -6,4 +6,4 @@ designed for security professionals and penetration testers.
 """
 
 __version__ = "0.2.0"
-__author__ = "Seidon4210"
+__author__ = "StevoMc"
