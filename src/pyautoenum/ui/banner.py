@@ -25,7 +25,7 @@ def text_banner():
 ╚═╝        ╚═╝   ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝   ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝     ╚═╝
                                                                                           
                            The prettiest Python Attack-Script                             
-                                       By Seidon4210                                      
+                                       By StevoMc                                      
     """
 
 
@@ -90,7 +90,7 @@ def animation_loop(stdscr):
         "╚═╝        ╚═╝   ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝   ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝     ╚═╝",
         "                                                                                          ",
         "                           The prettiest Python Attack-Script                             ",
-        "                                       By Seidon4210                                      ",
+        "                                       By StevoMc                                      ",
     ]
 
     text_height = len(pyautoenum_text)
@@ -167,3 +167,9 @@ def animation_loop(stdscr):
     # Wait for a key press at the end
     stdscr.nodelay(0)
     stdscr.getch()
+    
+    # Ensure cursor is visible when returning
+    try:
+        curses.curs_set(1)
+    except curses.error:
+        pass

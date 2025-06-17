@@ -22,7 +22,7 @@ def main():
     
     # Check if target is valid IP
     if not is_ip_address(target_ip):
-        print(f"Error: {target_ip} is not a valid IP address")
+        
         return 1
         
     # Create target info
@@ -31,9 +31,9 @@ def main():
     
     # Test if target is up
     if check_target_up(target_ip):
-        print(f"Target {target_ip} is up!")
+        
     else:
-        print(f"Target {target_ip} did not respond to ping")
+        
     
     # Log some information
     ConfigManager.log_info("Example information message")
@@ -41,9 +41,9 @@ def main():
     
     # Get recent logs
     recent_logs = ConfigManager.get_logs()[-5:]
-    print("\nRecent logs:")
+    
     for log in recent_logs:
-        print(f"  {log}")
+        
     
     return 0
 

@@ -367,4 +367,5 @@ class TargetInfo:
             if hasattr(self.config, "log_error"):
                 self.config.log_error(f"Failed to save target info: {str(e)}")
             else:
-                print(f"Failed to save target info: {str(e)}")
+                pass
+                

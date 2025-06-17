@@ -5,7 +5,7 @@ import shutil
 import threading
 import traceback
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -26,6 +26,8 @@ class ConfigManager:
     display_data: List[str] = []
     target_info = None
     modules: List[Module] = []
+    scan_thread = None  # Reference to active scan thread
+    ui_interface = None  # Reference to UI interface
     
     # Logging related
     logs: List[str] = []
@@ -44,6 +46,26 @@ class ConfigManager:
             return
             
         self._initialized = True
+    
+    @classmethod
+    def set_scan_thread(cls, scan_thread) -> None:
+        """
+        Set the active scan thread.
+        
+        Args:
+            scan_thread: ScanThread instance
+        """
+        cls.scan_thread = scan_thread
+    
+    @classmethod
+    def set_ui_interface(cls, ui_interface) -> None:
+        """
+        Set the UI interface.
+        
+        Args:
+            ui_interface: Interface instance
+        """
+        cls.ui_interface = ui_interface
     
     def init_config(self, path: Optional[str] = None) -> None:
         """
@@ -209,7 +231,7 @@ class ConfigManager:
                         f.write(text + "\n")
                         
         except Exception as e:
-            print(f"Error writing log: {str(e)}")
+            pass
     
     @classmethod
     def get_logs(cls) -> List[str]:

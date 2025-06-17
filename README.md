@@ -63,6 +63,12 @@ pyautoenum -t 192.168.1.100 --path /path/to/output
 pyautoenum -t target.example.com -n
 ```
 
+## Debugging
+
+The application includes detailed debug prints that can be enabled or disabled by modifying the debug level in the source code. These prints are useful for understanding the flow of the application and for troubleshooting issues.
+
+To remove debug prints for production use, search for "[DEBUG]" and remove or comment out those lines.
+
 ## Adding Custom Modules
 
 Custom modules can be added by creating a new module in the `modules.yml` file or by implementing Python functions in the modules directory.

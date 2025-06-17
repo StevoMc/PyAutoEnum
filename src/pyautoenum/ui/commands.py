@@ -1,5 +1,7 @@
 """Command processor for the PyAutoEnum UI."""
 
+import sys
+import threading
 import traceback
 from typing import List
 
@@ -17,7 +19,12 @@ class CommandProcessor:
             "help": self.command_help,
             "show": self.command_show,
             "back": self.command_back,
-            # Add more commands here as needed
+            "quit": self.command_quit,
+            "exit": self.command_quit,
+            "clear": self.command_clear,
+            "logs": self.command_logs,
+            "scan": self.command_scan,
+            "ports": self.command_ports,
         }
         
     def execute_command(self, user_input: str) -> None:
@@ -60,11 +67,45 @@ class CommandProcessor:
         """
         if args:
             cmd = args[0]
-            ConfigManager.log_info(f"Help for {cmd}:")
-            # Add specific help text for commands as needed
+            help_text = []
+            help_text.append(f"Help for '{cmd}':")
+            
+            if cmd == "show":
+                help_text.append("Usage: show [port]")
+                help_text.append("Shows detailed information about a specific port")
+            elif cmd == "back":
+                help_text.append("Usage: back")
+                help_text.append("Returns to the main view")
+            elif cmd == "quit" or cmd == "exit":
+                help_text.append("Usage: quit or exit")
+                help_text.append("Exits the application")
+            elif cmd == "clear":
+                help_text.append("Usage: clear")
+                help_text.append("Clears the screen")
+            elif cmd == "logs":
+                help_text.append("Usage: logs")
+                help_text.append("Shows recent log messages")
+            elif cmd == "scan":
+                help_text.append("Usage: scan")
+                help_text.append("Shows the current scan progress")
+            elif cmd == "ports":
+                help_text.append("Usage: ports")
+                help_text.append("Shows discovered ports and services")
+            else:
+                help_text.append(f"No specific help available for '{cmd}'")
+                
+            if ConfigManager.ui_interface:
+                ConfigManager.ui_interface.set_info_data(help_text)
+            else:
+                ConfigManager.log_info("\n".join(help_text))
         else:
-            ConfigManager.log_info("Available commands: " + ", ".join(self.commands.keys()))
-            ConfigManager.log_info("Use 'help <command>' for more information on a specific command")
+            # Show general help
+            if ConfigManager.ui_interface:
+                ConfigManager.ui_interface.show_help()
+            else:
+                commands_list = ", ".join(sorted(self.commands.keys()))
+                ConfigManager.log_info(f"Available commands: {commands_list}")
+                ConfigManager.log_info("Use 'help <command>' for more information on a specific command")
 
     def command_show(self, args: List[str]) -> None:
         """
@@ -89,13 +130,37 @@ class CommandProcessor:
             return
             
         display_data = []
-        display_data.append(f"Information about port [{port}]")
+        display_data.append(f"PORT {port} DETAILS")
+        display_data.append("=" * 30)
 
-        for key, value in port_data.to_dict().items():
-            display_data.append(f"{key}: {value}")
+        # Show basic port info
+        display_data.append(f"Protocol: {port_data.protocol}")
+        display_data.append(f"Service: {port_data.product}")
+        display_data.append(f"Version: {port_data.version}")
+        
+        # Show hostnames if available
+        if port_data.hostnames:
+            display_data.append("\nHostnames:")
+            for hostname in port_data.hostnames:
+                display_data.append(f"  - {hostname}")
+        
+        # Show modules run
+        if port_data.modules:
+            display_data.append("\nModules Run:")
+            for module in sorted(port_data.modules):
+                display_data.append(f"  - {module}")
+                
+        # Show additional info
+        if port_data.infos:
+            display_data.append("\nAdditional Information:")
+            for key, value in sorted(port_data.infos.items()):
+                display_data.append(f"  {key}: {value}")
 
-        ConfigManager.log_info(f"Showing details for port {port}")
-        ConfigManager.display_data = display_data
+        if ConfigManager.ui_interface:
+            ConfigManager.ui_interface.set_info_data(display_data)
+        else:
+            ConfigManager.display_data = display_data
+            ConfigManager.log_info(f"Showing details for port {port}")
 
     def command_back(self, args: List[str]) -> None:
         """
@@ -104,4 +169,75 @@ class CommandProcessor:
         Args:
             args: Command arguments
         """
+        if ConfigManager.ui_interface:
+            ConfigManager.ui_interface.switch_mode("port_data")
         ConfigManager.display_data = []
+        
+    def command_quit(self, args: List[str]) -> None:
+        """
+        Exit the application.
+        
+        Args:
+            args: Command arguments
+        """
+        ConfigManager.log_info("Exiting PyAutoEnum")
+        
+        # Stop any active scan
+        if ConfigManager.scan_thread:
+            ConfigManager.scan_thread.stop()
+            
+        # Give threads a moment to clean up
+        threading.Timer(0.5, lambda: sys.exit(0)).start()
+        
+    def command_clear(self, args: List[str]) -> None:
+        """
+        Clear the screen.
+        
+        Args:
+            args: Command arguments
+        """
+        if ConfigManager.ui_interface:
+            ConfigManager.ui_interface.switch_mode("port_data")
+        ConfigManager.display_data = []
+        ConfigManager.log_info("Screen cleared")
+        
+    def command_logs(self, args: List[str]) -> None:
+        """
+        Show logs.
+        
+        Args:
+            args: Command arguments
+        """
+        if ConfigManager.ui_interface:
+            ConfigManager.ui_interface.switch_mode("logs")
+        ConfigManager.log_info("Showing logs")
+        
+    def command_scan(self, args: List[str]) -> None:
+        """
+        Show scan progress.
+        
+        Args:
+            args: Command arguments
+        """
+        if ConfigManager.ui_interface:
+            ConfigManager.ui_interface.switch_mode("scan_progress")
+        
+        if not ConfigManager.scan_thread:
+            ConfigManager.log_warning("No active scan")
+        else:
+            ConfigManager.log_info("Showing scan progress")
+            
+    def command_ports(self, args: List[str]) -> None:
+        """
+        Show discovered ports.
+        
+        Args:
+            args: Command arguments
+        """
+        if ConfigManager.ui_interface:
+            ConfigManager.ui_interface.switch_mode("port_data")
+        
+        if not ConfigManager.target_info or not ConfigManager.target_info.ports:
+            ConfigManager.log_warning("No ports discovered yet")
+        else:
+            ConfigManager.log_info(f"Showing {len(ConfigManager.target_info.ports)} discovered ports")

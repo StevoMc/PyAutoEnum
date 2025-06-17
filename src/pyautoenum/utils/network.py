@@ -59,8 +59,14 @@ def check_target_up(ip):
     Returns:
         Boolean indicating if target responded
     """
-    response = ping(ip, timeout=5)
-    return response is not None
+    
+    try:
+        response = ping(ip, timeout=5)
+        
+        return response is not None
+    except Exception as e:
+        
+        return False
 
 
 def is_ip_address(string):
